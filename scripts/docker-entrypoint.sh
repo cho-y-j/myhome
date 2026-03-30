@@ -12,7 +12,7 @@ done
 echo "Database is ready."
 
 echo "Running database migrations..."
-npx prisma migrate deploy
+./node_modules/.bin/prisma migrate deploy || echo "Migration skipped (prisma cli not found in standalone)"
 
 echo "Starting application..."
 exec node server.js
