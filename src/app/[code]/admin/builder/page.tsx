@@ -1986,7 +1986,8 @@ function SiteInfoPanel({
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                setOgPreviewUrl(URL.createObjectURL(file));
+                const previewUrl = URL.createObjectURL(file);
+                setOgPreviewUrl(previewUrl);
                 setOgUploading(true);
                 const fd = new FormData();
                 fd.append("file", file);
@@ -1995,7 +1996,6 @@ function SiteInfoPanel({
                 setOgUploading(false);
                 if (json.success) {
                   setForm((prev) => ({ ...prev, ogImageUrl: json.data.url }));
-                  setOgPreviewUrl(null);
                 }
                 e.target.value = "";
               }}
@@ -2256,7 +2256,8 @@ function HeroEditor({
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              setHeroPreviewUrl(URL.createObjectURL(file));
+              const previewUrl = URL.createObjectURL(file);
+              setHeroPreviewUrl(previewUrl);
               setHeroUploading(true);
               const fd = new FormData();
               fd.append("file", file);
@@ -2265,7 +2266,7 @@ function HeroEditor({
               setHeroUploading(false);
               if (json.success) {
                 updateField("heroImageUrl", json.data.url);
-                setHeroPreviewUrl(null);
+                // objectURL 유지 — 서버 URL 접근 불가 시에도 미리보기 유지
               }
               e.target.value = "";
             }}
@@ -2437,7 +2438,8 @@ function IntroEditor({
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              setProfilePreviewUrl(URL.createObjectURL(file));
+              const previewUrl = URL.createObjectURL(file);
+              setProfilePreviewUrl(previewUrl);
               setProfileUploading(true);
               const fd = new FormData();
               fd.append("file", file);
@@ -2446,7 +2448,6 @@ function IntroEditor({
               setProfileUploading(false);
               if (json.success) {
                 updateField("profileImageUrl", json.data.url);
-                setProfilePreviewUrl(null);
               }
               e.target.value = "";
             }}
@@ -2794,7 +2795,8 @@ function GalleryEditor({
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
-            setGalleryPreviewUrl(URL.createObjectURL(file));
+            const previewUrl = URL.createObjectURL(file);
+            setGalleryPreviewUrl(previewUrl);
             setGalleryUploading(true);
             const fd = new FormData();
             fd.append("file", file);
@@ -2803,7 +2805,6 @@ function GalleryEditor({
             setGalleryUploading(false);
             if (json.success) {
               setNewUrl(json.data.url);
-              setGalleryPreviewUrl(null);
             }
             e.target.value = "";
           }}
