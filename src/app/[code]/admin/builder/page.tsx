@@ -1994,7 +1994,7 @@ function HeroEditor({
             ref={heroFileRef}
             type="file"
             accept="image/*"
-            style={{ display: "none" }}
+            className="absolute w-0 h-0 opacity-0 overflow-hidden"
             disabled={heroUploading}
             onChange={async (e) => {
               const file = e.target.files?.[0];
@@ -2172,7 +2172,7 @@ function IntroEditor({
             ref={profileFileRef}
             type="file"
             accept="image/*"
-            style={{ display: "none" }}
+            className="absolute w-0 h-0 opacity-0 overflow-hidden"
             disabled={profileUploading}
             onChange={async (e) => {
               const file = e.target.files?.[0];
@@ -2526,7 +2526,7 @@ function GalleryEditor({
           ref={galleryFileRef}
           type="file"
           accept="image/*"
-          style={{ display: "none" }}
+          className="absolute w-0 h-0 opacity-0 overflow-hidden"
           disabled={galleryUploading}
           onChange={async (e) => {
             const file = e.target.files?.[0];
