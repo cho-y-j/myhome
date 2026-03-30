@@ -1892,6 +1892,7 @@ function HeroEditor({
   });
 
   const [heroUploading, setHeroUploading] = useState(false);
+  const heroFileRef = useRef<HTMLInputElement>(null);
 
   // Update both local form and parent settings for live preview
   const updateField = (field: string, value: string) => {
@@ -1990,10 +1991,10 @@ function HeroEditor({
         <label className={labelClass}>히어로 이미지</label>
         <div className="flex gap-2 items-center">
           <input
-            ref={(el) => { if (el) (el as HTMLInputElement).dataset.heroInput = "true"; }}
+            ref={heroFileRef}
             type="file"
             accept="image/*"
-            className="hidden"
+            style={{ display: "none" }}
             disabled={heroUploading}
             onChange={async (e) => {
               const file = e.target.files?.[0];
@@ -2014,10 +2015,7 @@ function HeroEditor({
             type="button"
             className={`${btnSecondary} inline-flex items-center gap-1`}
             disabled={heroUploading}
-            onClick={() => {
-              const input = document.querySelector<HTMLInputElement>('input[data-hero-input]');
-              input?.click();
-            }}
+            onClick={() => heroFileRef.current?.click()}
           >
             {heroUploading ? "업로드 중..." : "📷 이미지 선택"}
           </button>
@@ -2141,6 +2139,7 @@ function IntroEditor({
     profileImageUrl: initialSettings.profileImageUrl || "",
   });
   const [profileUploading, setProfileUploading] = useState(false);
+  const profileFileRef = useRef<HTMLInputElement>(null);
 
   // Update both local form and parent settings for live preview
   const updateField = (field: string, value: string) => {
@@ -2170,10 +2169,10 @@ function IntroEditor({
         <label className={labelClass}>프로필 이미지</label>
         <div className="flex gap-2 items-center">
           <input
-            ref={(el) => { if (el) (el as HTMLInputElement).dataset.profileInput = "true"; }}
+            ref={profileFileRef}
             type="file"
             accept="image/*"
-            className="hidden"
+            style={{ display: "none" }}
             disabled={profileUploading}
             onChange={async (e) => {
               const file = e.target.files?.[0];
@@ -2194,10 +2193,7 @@ function IntroEditor({
             type="button"
             className={`${btnSecondary} inline-flex items-center gap-1`}
             disabled={profileUploading}
-            onClick={() => {
-              const input = document.querySelector<HTMLInputElement>('input[data-profile-input]');
-              input?.click();
-            }}
+            onClick={() => profileFileRef.current?.click()}
           >
             {profileUploading ? "업로드 중..." : "📷 이미지 선택"}
           </button>
@@ -2471,6 +2467,7 @@ function GalleryEditor({
   const [newAlt, setNewAlt] = useState("");
   const [newCat, setNewCat] = useState("activity");
   const [galleryUploading, setGalleryUploading] = useState(false);
+  const galleryFileRef = useRef<HTMLInputElement>(null);
 
   async function addItem() {
     if (!newUrl.trim()) return;
@@ -2526,10 +2523,10 @@ function GalleryEditor({
       <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-2">
         <p className="text-xs font-medium text-zinc-500">새 사진 추가</p>
         <input
-          ref={(el) => { if (el) (el as HTMLInputElement).dataset.galleryInput = "true"; }}
+          ref={galleryFileRef}
           type="file"
           accept="image/*"
-          className="hidden"
+          style={{ display: "none" }}
           disabled={galleryUploading}
           onChange={async (e) => {
             const file = e.target.files?.[0];
@@ -2542,18 +2539,15 @@ function GalleryEditor({
             setGalleryUploading(false);
             if (json.success) {
               setNewUrl(json.data.url);
-              }
-              e.target.value = "";
-            }}
-          />
+            }
+            e.target.value = "";
+          }}
+        />
         <button
           type="button"
           className={`${btnSecondary} inline-flex items-center gap-1 w-full justify-center`}
           disabled={galleryUploading}
-          onClick={() => {
-            const input = document.querySelector<HTMLInputElement>('input[data-gallery-input]');
-            input?.click();
-          }}
+          onClick={() => galleryFileRef.current?.click()}
         >
           {galleryUploading ? "업로드 중..." : "📷 이미지 선택"}
         </button>
