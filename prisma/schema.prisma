@@ -67,6 +67,7 @@ model User {
   externalChannels ExternalChannel[]
   reports          Report[]
   files            File[]
+  blocks           Block[]
 
   @@map("users")
 }
@@ -226,6 +227,22 @@ model Video {
 
   @@index([userId])
   @@map("videos")
+}
+
+model Block {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @db.VarChar(30) // hero, intro, career, goals, gallery, schedule, news, videos, contacts, links
+  title     String?  @db.VarChar(200) // custom section title override
+  content   Json?    // block-type-specific content
+  visible   Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("blocks")
 }
 
 // ============================================================

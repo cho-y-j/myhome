@@ -7,6 +7,7 @@ import { IconifyIcon } from "@/components/ui/iconify-icon";
 
 const NAV_ITEMS = [
   { path: "", icon: "solar:widget-bold", label: "대시보드" },
+  { path: "/builder", icon: "solar:layers-bold", label: "페이지 빌더" },
   { path: "/content", icon: "solar:document-text-bold", label: "콘텐츠 관리" },
   { path: "/analytics", icon: "solar:chart-2-bold", label: "분석" },
   { path: "/settings", icon: "solar:settings-bold", label: "설정" },

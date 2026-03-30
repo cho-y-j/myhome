@@ -193,7 +193,178 @@ async function main() {
   });
   console.log("✓ 사진 8장 생성 완료");
 
-  // 11. 시스템 설정
+  // 11. 블록 (demo 사용자)
+  const demoBlockTypes = ["hero", "intro", "career", "goals", "gallery", "schedule", "news", "videos", "contacts"];
+  for (let i = 0; i < demoBlockTypes.length; i++) {
+    await prisma.block.create({
+      data: {
+        userId: demoUser.id,
+        type: demoBlockTypes[i],
+        visible: true,
+        sortOrder: i,
+      },
+    });
+  }
+  console.log("✓ 데모 사용자 블록 9개 생성 완료");
+
+  // 12. 테스트 사용자 (test)
+  const testPassword = await bcrypt.hash("test1234", 12);
+  const testUser = await prisma.user.upsert({
+    where: { code: "test" },
+    update: {},
+    create: {
+      code: "test",
+      name: "테스트",
+      email: "test@myhome.kr",
+      phone: "010-9999-0000",
+      passwordHash: testPassword,
+      plan: "basic",
+      templateType: "election",
+      templateTheme: "default",
+      isActive: true,
+      memo: "테스트 계정",
+    },
+  });
+  console.log("✓ 테스트 사용자 생성 완료 (test / test1234)");
+
+  // 13. 테스트 사용자 사이트 설정
+  await prisma.siteSetting.upsert({
+    where: { userId: testUser.id },
+    update: {},
+    create: {
+      userId: testUser.id,
+      ogTitle: "테스트 홈페이지",
+      ogDescription: "테스트용 페이지입니다.",
+      heroSlogan: "안녕하세요",
+      heroSubSlogan: "테스트 페이지에 오신 것을 환영합니다",
+      positionTitle: "테스트 사용자",
+      subtitle: "테스트 페이지",
+      introText: "이것은 테스트용 페이지입니다. 다양한 블록 기능을 테스트할 수 있습니다.",
+      primaryColor: "#3B82F6",
+      accentColor: "#10B981",
+    },
+  });
+  console.log("✓ 테스트 사이트 설정 생성 완료");
+
+  // 14. 테스트 사용자 프로필
+  const testProfiles = [
+    { type: "education", title: "한국대학교 컴퓨터공학과 졸업", sortOrder: 0 },
+    { type: "career", title: "테스트 회사 개발팀장", isCurrent: true, sortOrder: 0 },
+    { type: "career", title: "이전 회사 소프트웨어 엔지니어", sortOrder: 1 },
+  ];
+  for (const p of testProfiles) {
+    await prisma.profile.create({
+      data: { userId: testUser.id, ...p },
+    });
+  }
+  console.log("✓ 테스트 프로필 3개 생성 완료");
+
+  // 15. 테스트 사용자 공약
+  const testPledges = [
+    {
+      icon: "solar:star-bold",
+      title: "첫 번째 목표",
+      description: "테스트용 첫 번째 목표입니다",
+      details: JSON.stringify(["세부 항목 1", "세부 항목 2"]),
+      sortOrder: 0,
+    },
+    {
+      icon: "solar:heart-bold",
+      title: "두 번째 목표",
+      description: "테스트용 두 번째 목표입니다",
+      details: JSON.stringify(["세부 항목 A", "세부 항목 B"]),
+      sortOrder: 1,
+    },
+  ];
+  for (const p of testPledges) {
+    await prisma.pledge.create({
+      data: { userId: testUser.id, ...p },
+    });
+  }
+  console.log("✓ 테스트 공약 2개 생성 완료");
+
+  // 16. 테스트 사용자 사진첩
+  await prisma.gallery.createMany({
+    data: [
+      { userId: testUser.id, url: "https://picsum.photos/seed/test1/800/600", altText: "테스트 이미지 1", category: "activity", sortOrder: 0 },
+      { userId: testUser.id, url: "https://picsum.photos/seed/test2/800/600", altText: "테스트 이미지 2", category: "activity", sortOrder: 1 },
+    ],
+  });
+  console.log("✓ 테스트 사진 2장 생성 완료");
+
+  // 17. 테스트 사용자 일정
+  await prisma.schedule.createMany({
+    data: [
+      { userId: testUser.id, title: "테스트 일정 1", date: new Date("2026-04-15"), time: "10:00", location: "테스트 장소" },
+      { userId: testUser.id, title: "테스트 일정 2", date: new Date("2026-04-20"), time: "14:00", location: "회의실" },
+    ],
+  });
+  console.log("✓ 테스트 일정 2개 생성 완료");
+
+  // 18. 테스트 사용자 연락처
+  await prisma.contact.createMany({
+    data: [
+      { userId: testUser.id, type: "phone", label: "전화", value: "010-9999-0000", sortOrder: 0 },
+      { userId: testUser.id, type: "email", label: "이메일", value: "test@myhome.kr", sortOrder: 1 },
+    ],
+  });
+  console.log("✓ 테스트 연락처 2개 생성 완료");
+
+  // 19. 테스트 사용자 뉴스
+  await prisma.news.createMany({
+    data: [
+      { userId: testUser.id, title: "테스트 뉴스 기사", source: "테스트 뉴스", url: "https://example.com/test-news", publishedDate: new Date("2026-03-20"), sortOrder: 0 },
+    ],
+  });
+  console.log("✓ 테스트 뉴스 1개 생성 완료");
+
+  // 20. 테스트 사용자 영상
+  await prisma.video.createMany({
+    data: [
+      { userId: testUser.id, videoId: "dQw4w9WgXcQ", title: "테스트 영상", sortOrder: 0 },
+    ],
+  });
+  console.log("✓ 테스트 영상 1개 생성 완료");
+
+  // 21. 테스트 사용자 블록
+  const testBlockTypes = ["hero", "intro", "career", "goals", "gallery", "schedule", "news", "videos", "contacts", "links"];
+  for (let i = 0; i < testBlockTypes.length; i++) {
+    await prisma.block.create({
+      data: {
+        userId: testUser.id,
+        type: testBlockTypes[i],
+        visible: true,
+        sortOrder: i,
+      },
+    });
+  }
+  console.log("✓ 테스트 사용자 블록 10개 생성 완료");
+
+  // 22. kim 사용자 블록 (존재하는 경우)
+  const kimUser = await prisma.user.findUnique({ where: { code: "kim" } });
+  if (kimUser) {
+    const kimBlockTypes = ["hero", "intro", "career", "goals", "gallery", "schedule", "news", "videos", "contacts"];
+    const existingKimBlocks = await prisma.block.findFirst({ where: { userId: kimUser.id } });
+    if (!existingKimBlocks) {
+      for (let i = 0; i < kimBlockTypes.length; i++) {
+        await prisma.block.create({
+          data: {
+            userId: kimUser.id,
+            type: kimBlockTypes[i],
+            visible: true,
+            sortOrder: i,
+          },
+        });
+      }
+      console.log("✓ kim 사용자 블록 9개 생성 완료");
+    } else {
+      console.log("✓ kim 사용자 블록 이미 존재 - 스킵");
+    }
+  } else {
+    console.log("ℹ kim 사용자가 없습니다 - 블록 생성 스킵");
+  }
+
+  // 23. 시스템 설정
   const settings = [
     { key: "max_file_size_basic", value: 104857600 },
     { key: "max_file_size_premium", value: 2147483648 },
