@@ -472,10 +472,10 @@ export default function BuilderPage() {
               contacts={contacts}
             />
 
-            {/* Edit panel (slides open below content) */}
+            {/* Edit panel (sticky, stays visible while scrolling) */}
             {editingBlockType === block.type && (
-              <div className="relative z-10">
-                <div className="mx-4 mb-6 sm:mx-8 rounded-xl bg-zinc-900 p-5 shadow-2xl border border-white/10 animate-in">
+              <div className="sticky bottom-0 z-30">
+                <div className="mx-4 mb-6 sm:mx-8 rounded-xl bg-zinc-900 p-5 shadow-2xl border border-white/10 animate-in max-h-[60vh] overflow-y-auto">
                   <div className="mb-4 flex items-center justify-between">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <span>{BLOCK_TYPES[block.type]?.icon}</span>
@@ -1918,28 +1918,38 @@ function HeroEditor({
       <div>
         <label className={labelClass}>히어로 이미지</label>
         <div className="flex gap-2 items-center">
-          <label className={`${btnSecondary} cursor-pointer inline-flex items-center gap-1`}>
+          <input
+            ref={(el) => { if (el) (el as HTMLInputElement).dataset.heroInput = "true"; }}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={heroUploading}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setHeroUploading(true);
+              const fd = new FormData();
+              fd.append("file", file);
+              const res = await fetch("/api/upload/hero", { method: "POST", body: fd });
+              const json = await res.json();
+              setHeroUploading(false);
+              if (json.success) {
+                updateField("heroImageUrl", json.data.url);
+              }
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            className={`${btnSecondary} inline-flex items-center gap-1`}
+            disabled={heroUploading}
+            onClick={() => {
+              const input = document.querySelector<HTMLInputElement>('input[data-hero-input]');
+              input?.click();
+            }}
+          >
             {heroUploading ? "업로드 중..." : "📷 이미지 선택"}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={heroUploading}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setHeroUploading(true);
-                const fd = new FormData();
-                fd.append("file", file);
-                const res = await fetch("/api/upload/hero", { method: "POST", body: fd });
-                const json = await res.json();
-                setHeroUploading(false);
-                if (json.success) {
-                  updateField("heroImageUrl", json.data.url);
-                }
-              }}
-            />
-          </label>
+          </button>
           {form.heroImageUrl && (
             <button
               className="text-xs text-red-400 hover:text-red-300"
@@ -2088,28 +2098,38 @@ function IntroEditor({
       <div>
         <label className={labelClass}>프로필 이미지</label>
         <div className="flex gap-2 items-center">
-          <label className={`${btnSecondary} cursor-pointer inline-flex items-center gap-1`}>
+          <input
+            ref={(el) => { if (el) (el as HTMLInputElement).dataset.profileInput = "true"; }}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={profileUploading}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setProfileUploading(true);
+              const fd = new FormData();
+              fd.append("file", file);
+              const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+              const json = await res.json();
+              setProfileUploading(false);
+              if (json.success) {
+                updateField("profileImageUrl", json.data.url);
+              }
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            className={`${btnSecondary} inline-flex items-center gap-1`}
+            disabled={profileUploading}
+            onClick={() => {
+              const input = document.querySelector<HTMLInputElement>('input[data-profile-input]');
+              input?.click();
+            }}
+          >
             {profileUploading ? "업로드 중..." : "📷 이미지 선택"}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={profileUploading}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setProfileUploading(true);
-                const fd = new FormData();
-                fd.append("file", file);
-                const res = await fetch("/api/upload/image", { method: "POST", body: fd });
-                const json = await res.json();
-                setProfileUploading(false);
-                if (json.success) {
-                  updateField("profileImageUrl", json.data.url);
-                }
-              }}
-            />
-          </label>
+          </button>
           {form.profileImageUrl && (
             <button className="text-xs text-red-400 hover:text-red-300" onClick={() => updateField("profileImageUrl", "")}>삭제</button>
           )}
@@ -2434,28 +2454,38 @@ function GalleryEditor({
 
       <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-2">
         <p className="text-xs font-medium text-zinc-500">새 사진 추가</p>
-        <label className={`${btnSecondary} cursor-pointer inline-flex items-center gap-1 w-full justify-center`}>
-          {galleryUploading ? "업로드 중..." : "📷 이미지 선택"}
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            disabled={galleryUploading}
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setGalleryUploading(true);
-              const fd = new FormData();
-              fd.append("file", file);
-              const res = await fetch("/api/upload/image", { method: "POST", body: fd });
-              const json = await res.json();
-              setGalleryUploading(false);
-              if (json.success) {
-                setNewUrl(json.data.url);
+        <input
+          ref={(el) => { if (el) (el as HTMLInputElement).dataset.galleryInput = "true"; }}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={galleryUploading}
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setGalleryUploading(true);
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+            const json = await res.json();
+            setGalleryUploading(false);
+            if (json.success) {
+              setNewUrl(json.data.url);
               }
+              e.target.value = "";
             }}
           />
-        </label>
+        <button
+          type="button"
+          className={`${btnSecondary} inline-flex items-center gap-1 w-full justify-center`}
+          disabled={galleryUploading}
+          onClick={() => {
+            const input = document.querySelector<HTMLInputElement>('input[data-gallery-input]');
+            input?.click();
+          }}
+        >
+          {galleryUploading ? "업로드 중..." : "📷 이미지 선택"}
+        </button>
         {newUrl && (
           <div className="mt-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
