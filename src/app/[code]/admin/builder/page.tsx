@@ -413,73 +413,93 @@ export default function BuilderPage() {
       {/* ── Spacer for fixed top bar ── */}
       <div className="h-12" />
 
-      {/* ── Add block at top ── */}
-      <AddBlockButton
-        index={-1}
-        showAddMenu={showAddMenu}
-        setShowAddMenu={setShowAddMenu}
-        onAdd={addBlock}
-        existingTypes={blocks.map((b) => b.type)}
-      />
+      {/* ── Split layout: preview left + edit panel right ── */}
+      <div className="flex min-h-[calc(100vh-3rem)]">
+        {/* Left: Live Preview */}
+        <div className={`flex-1 transition-all duration-300 ${editingBlockType ? "lg:mr-[420px]" : ""}`}>
+          {/* Add block at top */}
+          <AddBlockButton
+            index={-1}
+            showAddMenu={showAddMenu}
+            setShowAddMenu={setShowAddMenu}
+            onAdd={addBlock}
+            existingTypes={blocks.map((b) => b.type)}
+          />
 
-      {/* ── Empty state ── */}
-      {blocks.length === 0 && (
-        <div className="mx-auto max-w-2xl px-6 py-20 text-center">
-          <div className="text-5xl mb-4">&#128230;</div>
-          <p className="text-lg font-semibold text-gray-400">
-            아직 블록이 없습니다
-          </p>
-          <p className="mt-2 text-sm text-gray-400">
-            위의 + 버튼을 눌러 섹션을 추가하세요
-          </p>
+          {/* Empty state */}
+          {blocks.length === 0 && (
+            <div className="mx-auto max-w-2xl px-6 py-20 text-center">
+              <div className="text-5xl mb-4">&#128230;</div>
+              <p className="text-lg font-semibold text-gray-400">
+                아직 블록이 없습니다
+              </p>
+              <p className="mt-2 text-sm text-gray-400">
+                위의 + 버튼을 눌러 섹션을 추가하세요
+              </p>
+            </div>
+          )}
+
+          {/* Render blocks as live preview sections */}
+          {blocks.map((block, index) => (
+            <div key={block.id}>
+              <SectionWrapper
+                block={block}
+                index={index}
+                isEditing={editingBlockType === block.type}
+                isHovered={hoveredBlock === block.type}
+                isDragOver={dragOverIndex === index}
+                isDragging={dragIndex === index}
+                onHover={(h) => setHoveredBlock(h ? block.type : null)}
+                onEdit={() =>
+                  setEditingBlockType(
+                    editingBlockType === block.type ? null : block.type
+                  )
+                }
+                onToggleVisibility={() => toggleVisibility(block)}
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={() => handleDrop(index)}
+                onDragEnd={handleDragEnd}
+              >
+                <SectionPreview
+                  block={block}
+                  settings={settings}
+                  siteName={siteName}
+                  profiles={profiles}
+                  pledges={pledges}
+                  gallery={gallery}
+                  schedules={schedules}
+                  news={news}
+                  videos={videos}
+                  contacts={contacts}
+                />
+              </SectionWrapper>
+
+              <AddBlockButton
+                index={index}
+                showAddMenu={showAddMenu}
+                setShowAddMenu={setShowAddMenu}
+                onAdd={addBlock}
+                existingTypes={blocks.map((b) => b.type)}
+              />
+            </div>
+          ))}
         </div>
-      )}
 
-      {/* ── Render blocks as live preview sections ── */}
-      {blocks.map((block, index) => (
-        <div key={block.id}>
-          <SectionWrapper
-            block={block}
-            index={index}
-            isEditing={editingBlockType === block.type}
-            isHovered={hoveredBlock === block.type}
-            isDragOver={dragOverIndex === index}
-            isDragging={dragIndex === index}
-            onHover={(h) => setHoveredBlock(h ? block.type : null)}
-            onEdit={() =>
-              setEditingBlockType(
-                editingBlockType === block.type ? null : block.type
-              )
-            }
-            onToggleVisibility={() => toggleVisibility(block)}
-            onDragStart={() => handleDragStart(index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDragLeave={handleDragLeave}
-            onDrop={() => handleDrop(index)}
-            onDragEnd={handleDragEnd}
-          >
-            {/* Live preview content */}
-            <SectionPreview
-              block={block}
-              settings={settings}
-              siteName={siteName}
-              profiles={profiles}
-              pledges={pledges}
-              gallery={gallery}
-              schedules={schedules}
-              news={news}
-              videos={videos}
-              contacts={contacts}
-            />
-
-            {/* Edit panel (sticky, stays visible while scrolling) */}
-            {editingBlockType === block.type && (
-              <div className="sticky bottom-0 z-30">
-                <div className="mx-4 mb-6 sm:mx-8 rounded-xl bg-zinc-900 p-5 shadow-2xl border border-white/10 animate-in max-h-[60vh] overflow-y-auto">
+        {/* Right: Edit Panel (desktop) / Bottom Sheet (mobile) */}
+        {editingBlockType && (() => {
+          const editBlock = blocks.find((b) => b.type === editingBlockType);
+          if (!editBlock) return null;
+          return (
+            <>
+              {/* Desktop: fixed right panel */}
+              <div className="hidden lg:block fixed top-12 right-0 w-[420px] h-[calc(100vh-3rem)] bg-zinc-900 border-l border-white/10 shadow-2xl z-40 animate-in overflow-y-auto">
+                <div className="p-5">
                   <div className="mb-4 flex items-center justify-between">
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <span>{BLOCK_TYPES[block.type]?.icon}</span>
-                      {BLOCK_TYPES[block.type]?.label || block.type} 편집
+                      <span>{BLOCK_TYPES[editBlock.type]?.icon}</span>
+                      {BLOCK_TYPES[editBlock.type]?.label || editBlock.type} 편집
                     </h3>
                     <button
                       onClick={() => setEditingBlockType(null)}
@@ -491,7 +511,7 @@ export default function BuilderPage() {
                     </button>
                   </div>
                   <BlockTitleEditor
-                    block={block}
+                    block={editBlock}
                     onTitleSaved={(updatedBlock) => {
                       setBlocks((prev) =>
                         prev.map((b) => (b.id === updatedBlock.id ? updatedBlock : b))
@@ -499,7 +519,7 @@ export default function BuilderPage() {
                     }}
                   />
                   <SectionEditor
-                    block={block}
+                    block={editBlock}
                     settings={settings}
                     setSettings={setSettings}
                     profiles={profiles}
@@ -512,8 +532,7 @@ export default function BuilderPage() {
                     onSaving={() => setSaving(true)}
                     onSaved={async () => {
                       setSaving(false);
-                      await reloadSection(block.type);
-                      // Also reload blocks to get updated content
+                      await reloadSection(editBlock.type);
                       const bRes = await apiFetch<Block[]>("/api/site/blocks");
                       if (bRes.success && bRes.data) setBlocks(bRes.data);
                       flashSave("저장되었습니다");
@@ -522,19 +541,71 @@ export default function BuilderPage() {
                   />
                 </div>
               </div>
-            )}
-          </SectionWrapper>
 
-          {/* Add block between */}
-          <AddBlockButton
-            index={index}
-            showAddMenu={showAddMenu}
-            setShowAddMenu={setShowAddMenu}
-            onAdd={addBlock}
-            existingTypes={blocks.map((b) => b.type)}
-          />
-        </div>
-      ))}
+              {/* Mobile: bottom sheet */}
+              <div className="lg:hidden fixed inset-x-0 bottom-0 z-40">
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 bg-black/40"
+                  onClick={() => setEditingBlockType(null)}
+                />
+                {/* Sheet */}
+                <div className="relative bg-zinc-900 rounded-t-2xl border-t border-white/10 shadow-2xl max-h-[70vh] overflow-y-auto animate-in">
+                  {/* Handle */}
+                  <div className="sticky top-0 bg-zinc-900 pt-2 pb-1 flex justify-center rounded-t-2xl z-10">
+                    <div className="w-10 h-1 rounded-full bg-zinc-600" />
+                  </div>
+                  <div className="px-5 pb-8">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>{BLOCK_TYPES[editBlock.type]?.icon}</span>
+                        {BLOCK_TYPES[editBlock.type]?.label || editBlock.type} 편집
+                      </h3>
+                      <button
+                        onClick={() => setEditingBlockType(null)}
+                        className="rounded-lg p-1 text-zinc-500 hover:bg-white/10 hover:text-white transition-colors"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <BlockTitleEditor
+                      block={editBlock}
+                      onTitleSaved={(updatedBlock) => {
+                        setBlocks((prev) =>
+                          prev.map((b) => (b.id === updatedBlock.id ? updatedBlock : b))
+                        );
+                      }}
+                    />
+                    <SectionEditor
+                      block={editBlock}
+                      settings={settings}
+                      setSettings={setSettings}
+                      profiles={profiles}
+                      pledges={pledges}
+                      gallery={gallery}
+                      schedules={schedules}
+                      news={news}
+                      videos={videos}
+                      contacts={contacts}
+                      onSaving={() => setSaving(true)}
+                      onSaved={async () => {
+                        setSaving(false);
+                        await reloadSection(editBlock.type);
+                        const bRes = await apiFetch<Block[]>("/api/site/blocks");
+                        if (bRes.success && bRes.data) setBlocks(bRes.data);
+                        flashSave("저장되었습니다");
+                      }}
+                      onCancel={() => setEditingBlockType(null)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+      </div>
 
       {/* ── Save toast ── */}
       {(saving || saveMessage) && (
