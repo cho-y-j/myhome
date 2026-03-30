@@ -5,6 +5,7 @@ import type { SiteData } from "@/types/site";
 interface Props {
   contacts: SiteData["contacts"];
   kakaoAppKey: string | null;
+  sectionTitle?: string;
 }
 
 const CONTACT_META: Record<
@@ -87,7 +88,7 @@ function copyToClipboard() {
   }
 }
 
-export default function ElectionContacts({ contacts, kakaoAppKey }: Props) {
+export default function ElectionContacts({ contacts, kakaoAppKey, sectionTitle }: Props) {
   if (contacts.length === 0) return null;
 
   const sorted = [...contacts].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -97,7 +98,7 @@ export default function ElectionContacts({ contacts, kakaoAppKey }: Props) {
       {/* Section heading */}
       <div className="mb-10 text-center">
         <h2 className="section-heading text-2xl font-bold sm:text-3xl text-gray-900">
-          연락처
+          {sectionTitle || "연락처"}
         </h2>
       </div>
 

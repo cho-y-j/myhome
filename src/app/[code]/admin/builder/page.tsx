@@ -95,17 +95,17 @@ interface SiteSettings {
 }
 
 /* ─── Constants ─── */
-const BLOCK_TYPES: Record<string, { label: string; icon: string }> = {
-  hero: { label: "메인 이미지", icon: "🖼" },
-  intro: { label: "소개", icon: "📝" },
-  career: { label: "이력", icon: "📋" },
-  goals: { label: "핵심 목표", icon: "🎯" },
-  gallery: { label: "사진첩", icon: "📸" },
-  schedule: { label: "일정", icon: "📅" },
-  news: { label: "관련기사", icon: "📰" },
-  videos: { label: "영상", icon: "🎬" },
-  contacts: { label: "연락처", icon: "📞" },
-  links: { label: "링크", icon: "🔗" },
+const BLOCK_TYPES: Record<string, { label: string; icon: string; defaultTitle: string }> = {
+  hero: { label: "메인 이미지", icon: "🖼", defaultTitle: "" },
+  intro: { label: "소개", icon: "📝", defaultTitle: "후보 소개" },
+  career: { label: "이력", icon: "📋", defaultTitle: "이력" },
+  goals: { label: "핵심 목표", icon: "🎯", defaultTitle: "핵심 공약" },
+  gallery: { label: "사진첩", icon: "📸", defaultTitle: "사진첩" },
+  schedule: { label: "일정", icon: "📅", defaultTitle: "일정" },
+  news: { label: "관련기사", icon: "📰", defaultTitle: "관련기사" },
+  videos: { label: "영상", icon: "🎬", defaultTitle: "영상" },
+  contacts: { label: "연락처", icon: "📞", defaultTitle: "연락처" },
+  links: { label: "링크", icon: "🔗", defaultTitle: "링크" },
 };
 
 const BLOCK_TYPE_KEYS = Object.keys(BLOCK_TYPES);
@@ -490,9 +490,18 @@ export default function BuilderPage() {
                       </svg>
                     </button>
                   </div>
+                  <BlockTitleEditor
+                    block={block}
+                    onTitleSaved={(updatedBlock) => {
+                      setBlocks((prev) =>
+                        prev.map((b) => (b.id === updatedBlock.id ? updatedBlock : b))
+                      );
+                    }}
+                  />
                   <SectionEditor
                     block={block}
                     settings={settings}
+                    setSettings={setSettings}
                     profiles={profiles}
                     pledges={pledges}
                     gallery={gallery}
@@ -504,6 +513,9 @@ export default function BuilderPage() {
                     onSaved={async () => {
                       setSaving(false);
                       await reloadSection(block.type);
+                      // Also reload blocks to get updated content
+                      const bRes = await apiFetch<Block[]>("/api/site/blocks");
+                      if (bRes.success && bRes.data) setBlocks(bRes.data);
                       flashSave("저장되었습니다");
                     }}
                     onCancel={() => setEditingBlockType(null)}
@@ -719,10 +731,11 @@ function SectionPreview({
 }) {
   switch (block.type) {
     case "hero":
-      return <HeroPreview settings={settings} candidateName={siteName} />;
+      return <HeroPreview block={block} settings={settings} candidateName={siteName} />;
     case "intro":
       return (
         <IntroPreview
+          block={block}
           settings={settings}
           profiles={profiles}
           candidateName={siteName}
@@ -731,23 +744,24 @@ function SectionPreview({
     case "career":
       return (
         <CareerPreview
+          block={block}
           profiles={profiles}
           candidateName={siteName}
           settings={settings}
         />
       );
     case "goals":
-      return <GoalsPreview pledges={pledges} />;
+      return <GoalsPreview block={block} pledges={pledges} />;
     case "gallery":
-      return <GalleryPreview gallery={gallery} />;
+      return <GalleryPreview block={block} gallery={gallery} />;
     case "schedule":
-      return <SchedulePreview schedules={schedules} />;
+      return <SchedulePreview block={block} schedules={schedules} />;
     case "news":
-      return <NewsPreview news={news} />;
+      return <NewsPreview block={block} news={news} />;
     case "videos":
-      return <VideosPreview videos={videos} />;
+      return <VideosPreview block={block} videos={videos} />;
     case "contacts":
-      return <ContactsPreview contacts={contacts} />;
+      return <ContactsPreview block={block} contacts={contacts} />;
     case "links":
       return <LinksPreview block={block} />;
     default:
@@ -780,13 +794,23 @@ function EmptySection({ label, icon }: { label: string; icon: string }) {
    HERO Preview
    ═══════════════════════════════════════════════ */
 function HeroPreview({
+  block,
   settings,
   candidateName,
 }: {
+  block: Block;
   settings: SiteSettings;
   candidateName: string;
 }) {
   const dDay = calcDDay(settings.electionDate);
+  const heroContent = block.content as {
+    button1Text?: string;
+    button1Link?: string;
+    button2Text?: string;
+    button2Link?: string;
+  } | null;
+  const button1Text = heroContent?.button1Text || "공약 보기";
+  const button2Text = heroContent?.button2Text || "후보 소개";
 
   const badges = (
     <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -838,10 +862,10 @@ function HeroPreview({
             filter: "brightness(0.85)",
           }}
         >
-          공약 보기
+          {button1Text}
         </span>
         <span className="rounded-full border-2 border-white/50 bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur-sm cursor-default">
-          후보 소개
+          {button2Text}
         </span>
       </div>
     </div>
@@ -890,10 +914,12 @@ function HeroPreview({
    INTRO / Keywords Preview
    ═══════════════════════════════════════════════ */
 function IntroPreview({
+  block,
   settings,
   profiles,
   candidateName,
 }: {
+  block: Block;
   settings: SiteSettings;
   profiles: ProfileItem[];
   candidateName: string;
@@ -906,7 +932,7 @@ function IntroPreview({
     <section className="mx-auto max-w-4xl px-6 py-16 sm:py-20">
       <div className="mb-10 text-center">
         <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">
-          후보 소개
+          {block.title || BLOCK_TYPES.intro.defaultTitle}
         </h2>
       </div>
       {settings.introText && (
@@ -949,10 +975,12 @@ function IntroPreview({
    CAREER Preview
    ═══════════════════════════════════════════════ */
 function CareerPreview({
+  block,
   profiles,
   candidateName,
   settings,
 }: {
+  block: Block;
   profiles: ProfileItem[];
   candidateName: string;
   settings: SiteSettings;
@@ -972,7 +1000,7 @@ function CareerPreview({
     <section className="mx-auto max-w-4xl px-6 py-16 sm:py-20">
       <div className="mb-10 text-center">
         <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">
-          이력
+          {block.title || BLOCK_TYPES.career.defaultTitle}
         </h2>
       </div>
       <div className="grid gap-10 sm:grid-cols-2">
@@ -1064,7 +1092,7 @@ function TimelineItem({ item }: { item: ProfileItem }) {
 /* ═══════════════════════════════════════════════
    GOALS Preview
    ═══════════════════════════════════════════════ */
-function GoalsPreview({ pledges }: { pledges: PledgeItem[] }) {
+function GoalsPreview({ block, pledges }: { block: Block; pledges: PledgeItem[] }) {
   if (pledges.length === 0) {
     return <EmptySection label="핵심 목표" icon="🎯" />;
   }
@@ -1078,7 +1106,7 @@ function GoalsPreview({ pledges }: { pledges: PledgeItem[] }) {
       <div className="mx-auto max-w-4xl px-6">
         <div className="mb-4 text-center">
           <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">
-            핵심 공약
+            {block.title || BLOCK_TYPES.goals.defaultTitle}
           </h2>
         </div>
         <p className="mb-10 text-center text-sm text-gray-500">
@@ -1123,7 +1151,7 @@ function GoalsPreview({ pledges }: { pledges: PledgeItem[] }) {
 /* ═══════════════════════════════════════════════
    GALLERY Preview
    ═══════════════════════════════════════════════ */
-function GalleryPreview({ gallery }: { gallery: GalleryItem[] }) {
+function GalleryPreview({ block, gallery }: { block: Block; gallery: GalleryItem[] }) {
   if (gallery.length === 0) {
     return <EmptySection label="사진첩" icon="📸" />;
   }
@@ -1136,7 +1164,7 @@ function GalleryPreview({ gallery }: { gallery: GalleryItem[] }) {
     <section className="mx-auto max-w-5xl px-6 py-16 sm:py-20">
       <div className="mb-10 text-center">
         <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">
-          사진첩
+          {block.title || BLOCK_TYPES.gallery.defaultTitle}
         </h2>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -1162,7 +1190,7 @@ function GalleryPreview({ gallery }: { gallery: GalleryItem[] }) {
 /* ═══════════════════════════════════════════════
    SCHEDULE Preview
    ═══════════════════════════════════════════════ */
-function SchedulePreview({ schedules }: { schedules: ScheduleItem[] }) {
+function SchedulePreview({ block, schedules }: { block: Block; schedules: ScheduleItem[] }) {
   if (schedules.length === 0) {
     return <EmptySection label="일정" icon="📅" />;
   }
@@ -1174,7 +1202,7 @@ function SchedulePreview({ schedules }: { schedules: ScheduleItem[] }) {
   return (
     <section className="mx-auto max-w-3xl px-6 py-16 sm:py-20">
       <div className="mb-10 text-center">
-        <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">일정</h2>
+        <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">{block.title || BLOCK_TYPES.schedule.defaultTitle}</h2>
       </div>
       <div className="space-y-3">
         {sorted.map((item) => {
@@ -1224,7 +1252,7 @@ function SchedulePreview({ schedules }: { schedules: ScheduleItem[] }) {
 /* ═══════════════════════════════════════════════
    NEWS Preview
    ═══════════════════════════════════════════════ */
-function NewsPreview({ news }: { news: NewsItem[] }) {
+function NewsPreview({ block, news }: { block: Block; news: NewsItem[] }) {
   if (news.length === 0) {
     return <EmptySection label="관련기사" icon="📰" />;
   }
@@ -1233,7 +1261,7 @@ function NewsPreview({ news }: { news: NewsItem[] }) {
     <section className="mx-auto max-w-4xl px-6 py-16 sm:py-20">
       <div className="mb-10 text-center">
         <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">
-          관련기사
+          {block.title || BLOCK_TYPES.news.defaultTitle}
         </h2>
       </div>
       <div className="space-y-3">
@@ -1282,7 +1310,7 @@ function NewsPreview({ news }: { news: NewsItem[] }) {
 /* ═══════════════════════════════════════════════
    VIDEOS Preview
    ═══════════════════════════════════════════════ */
-function VideosPreview({ videos }: { videos: VideoItem[] }) {
+function VideosPreview({ block, videos }: { block: Block; videos: VideoItem[] }) {
   if (videos.length === 0) {
     return <EmptySection label="영상" icon="🎬" />;
   }
@@ -1296,7 +1324,7 @@ function VideosPreview({ videos }: { videos: VideoItem[] }) {
       <div className="mx-auto max-w-4xl px-6">
         <div className="mb-10 text-center">
           <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">
-            영상
+            {block.title || BLOCK_TYPES.videos.defaultTitle}
           </h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -1346,7 +1374,7 @@ function VideosPreview({ videos }: { videos: VideoItem[] }) {
 /* ═══════════════════════════════════════════════
    CONTACTS Preview
    ═══════════════════════════════════════════════ */
-function ContactsPreview({ contacts }: { contacts: ContactItem[] }) {
+function ContactsPreview({ block, contacts }: { block: Block; contacts: ContactItem[] }) {
   if (contacts.length === 0) {
     return <EmptySection label="연락처" icon="📞" />;
   }
@@ -1369,7 +1397,7 @@ function ContactsPreview({ contacts }: { contacts: ContactItem[] }) {
     <section className="mx-auto max-w-3xl px-6 py-16 sm:py-20">
       <div className="mb-10 text-center">
         <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">
-          연락처
+          {block.title || BLOCK_TYPES.contacts.defaultTitle}
         </h2>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -1419,7 +1447,7 @@ function LinksPreview({ block }: { block: Block }) {
   return (
     <section className="mx-auto max-w-3xl px-6 py-16 sm:py-20">
       <div className="mb-10 text-center">
-        <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">링크</h2>
+        <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">{block.title || BLOCK_TYPES.links.defaultTitle}</h2>
       </div>
       <div className="space-y-3">
         {links.map((link, i) => (
@@ -1543,11 +1571,61 @@ function AddBlockButton({
 }
 
 /* ═══════════════════════════════════════════════
+   Block Title Editor — common title field for all blocks
+   ═══════════════════════════════════════════════ */
+function BlockTitleEditor({
+  block,
+  onTitleSaved,
+}: {
+  block: Block;
+  onTitleSaved: (updated: Block) => void;
+}) {
+  const defaultTitle = BLOCK_TYPES[block.type]?.defaultTitle || "";
+  const [title, setTitle] = useState(block.title || "");
+  const [saved, setSaved] = useState(false);
+
+  async function saveTitle() {
+    const res = await apiFetch<Block>(`/api/site/blocks/${block.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ title: title || null }),
+    });
+    if (res.success && res.data) {
+      onTitleSaved(res.data);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    }
+  }
+
+  if (block.type === "hero") return null;
+
+  return (
+    <div className="mb-4 pb-4 border-b border-white/10">
+      <label className={labelClass}>섹션 제목</label>
+      <div className="flex gap-2">
+        <input
+          className={inputClass}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={defaultTitle || "섹션 제목"}
+        />
+        <button onClick={saveTitle} className={btnSecondary}>
+          {saved ? "저장됨" : "적용"}
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-zinc-600">
+        비워두면 기본값 &ldquo;{defaultTitle}&rdquo;이 사용됩니다
+      </p>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    Section Editor — dispatches to type-specific editors
    ═══════════════════════════════════════════════ */
 function SectionEditor({
   block,
   settings,
+  setSettings,
   profiles,
   pledges,
   gallery,
@@ -1561,6 +1639,7 @@ function SectionEditor({
 }: {
   block: Block;
   settings: SiteSettings;
+  setSettings: React.Dispatch<React.SetStateAction<SiteSettings>>;
   profiles: ProfileItem[];
   pledges: PledgeItem[];
   gallery: GalleryItem[];
@@ -1578,6 +1657,7 @@ function SectionEditor({
         <HeroEditor
           block={block}
           settings={settings}
+          setSettings={setSettings}
           onSaving={onSaving}
           onSaved={onSaved}
           onCancel={onCancel}
@@ -1717,23 +1797,54 @@ function EditorActions({
 function HeroEditor({
   block,
   settings: initialSettings,
+  setSettings,
   onSaving,
   onSaved,
   onCancel,
-}: EditorBaseProps & { settings: SiteSettings }) {
+}: EditorBaseProps & { settings: SiteSettings; setSettings: React.Dispatch<React.SetStateAction<SiteSettings>> }) {
+  const heroContent = block.content as {
+    button1Text?: string;
+    button1Link?: string;
+    button2Text?: string;
+    button2Link?: string;
+  } | null;
+
   const [form, setForm] = useState({
     heroImageUrl: initialSettings.heroImageUrl || "",
     heroSlogan: initialSettings.heroSlogan || "",
     heroSubSlogan: initialSettings.heroSubSlogan || "",
     partyName: initialSettings.partyName || "",
     positionTitle: initialSettings.positionTitle || "",
+    primaryColor: initialSettings.primaryColor || "#C9151E",
+    accentColor: initialSettings.accentColor || "#1A56DB",
   });
+
+  const [buttonForm, setButtonForm] = useState({
+    button1Text: heroContent?.button1Text || "공약 보기",
+    button1Link: heroContent?.button1Link || "#pledges",
+    button2Text: heroContent?.button2Text || "후보 소개",
+    button2Link: heroContent?.button2Link || "#about",
+  });
+
+  // Update CSS custom properties in real-time when colors change
+  function handleColorChange(field: "primaryColor" | "accentColor", value: string) {
+    setForm({ ...form, [field]: value });
+    setSettings((prev) => ({ ...prev, [field]: value }));
+  }
 
   async function save() {
     onSaving();
     await apiFetch("/api/site/settings", {
       method: "PUT",
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        heroImageUrl: form.heroImageUrl,
+        heroSlogan: form.heroSlogan,
+        heroSubSlogan: form.heroSubSlogan,
+        partyName: form.partyName,
+        positionTitle: form.positionTitle,
+        primaryColor: form.primaryColor,
+        accentColor: form.accentColor,
+      }),
     });
     await apiFetch(`/api/site/blocks/${block.id}`, {
       method: "PUT",
@@ -1742,6 +1853,10 @@ function HeroEditor({
           heroImageUrl: form.heroImageUrl,
           heroSlogan: form.heroSlogan,
           heroSubSlogan: form.heroSubSlogan,
+          button1Text: buttonForm.button1Text,
+          button1Link: buttonForm.button1Link,
+          button2Text: buttonForm.button2Text,
+          button2Link: buttonForm.button2Link,
         },
       }),
     });
@@ -1750,6 +1865,47 @@ function HeroEditor({
 
   return (
     <div className="space-y-3">
+      {/* Color customization */}
+      <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-3">
+        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">색상 설정</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>메인 색상</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={form.primaryColor}
+                onChange={(e) => handleColorChange("primaryColor", e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded border border-white/10 bg-transparent p-0.5"
+              />
+              <input
+                className={`${inputClass} flex-1`}
+                value={form.primaryColor}
+                onChange={(e) => handleColorChange("primaryColor", e.target.value)}
+                placeholder="#C9151E"
+              />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>강조 색상</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={form.accentColor}
+                onChange={(e) => handleColorChange("accentColor", e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded border border-white/10 bg-transparent p-0.5"
+              />
+              <input
+                className={`${inputClass} flex-1`}
+                value={form.accentColor}
+                onChange={(e) => handleColorChange("accentColor", e.target.value)}
+                placeholder="#1A56DB"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div>
         <label className={labelClass}>히어로 이미지 URL</label>
         <input
@@ -1808,6 +1964,52 @@ function HeroEditor({
           placeholder="예: 제00대 국회의원 후보"
         />
       </div>
+
+      {/* Button customization */}
+      <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-3">
+        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">버튼 설정</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>버튼1 텍스트</label>
+            <input
+              className={inputClass}
+              value={buttonForm.button1Text}
+              onChange={(e) => setButtonForm({ ...buttonForm, button1Text: e.target.value })}
+              placeholder="공약 보기"
+            />
+          </div>
+          <div>
+            <label className={labelClass}>버튼1 링크</label>
+            <input
+              className={inputClass}
+              value={buttonForm.button1Link}
+              onChange={(e) => setButtonForm({ ...buttonForm, button1Link: e.target.value })}
+              placeholder="#pledges"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>버튼2 텍스트</label>
+            <input
+              className={inputClass}
+              value={buttonForm.button2Text}
+              onChange={(e) => setButtonForm({ ...buttonForm, button2Text: e.target.value })}
+              placeholder="후보 소개"
+            />
+          </div>
+          <div>
+            <label className={labelClass}>버튼2 링크</label>
+            <input
+              className={inputClass}
+              value={buttonForm.button2Link}
+              onChange={(e) => setButtonForm({ ...buttonForm, button2Link: e.target.value })}
+              placeholder="#about"
+            />
+          </div>
+        </div>
+      </div>
+
       <EditorActions onSave={save} onCancel={onCancel} />
     </div>
   );

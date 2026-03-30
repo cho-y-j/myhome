@@ -21,7 +21,7 @@ async function getSiteData(code: string): Promise<SiteData | null> {
 
   if (!user) return null;
 
-  const [settings, profiles, pledges, gallery, schedules, contacts, news, videos] =
+  const [settings, profiles, pledges, gallery, schedules, contacts, news, videos, blocks] =
     await Promise.all([
       prisma.siteSetting.findUnique({ where: { userId: user.id } }),
       prisma.profile.findMany({
@@ -50,6 +50,10 @@ async function getSiteData(code: string): Promise<SiteData | null> {
       }),
       prisma.video.findMany({
         where: { userId: user.id },
+        orderBy: { sortOrder: "asc" },
+      }),
+      prisma.block.findMany({
+        where: { userId: user.id, visible: true },
         orderBy: { sortOrder: "asc" },
       }),
     ]);
@@ -133,6 +137,13 @@ async function getSiteData(code: string): Promise<SiteData | null> {
       videoId: v.videoId,
       title: v.title,
       sortOrder: v.sortOrder,
+    })),
+    blocks: blocks.map((b) => ({
+      id: b.id,
+      type: b.type,
+      title: b.title,
+      content: b.content as Record<string, unknown> | null,
+      sortOrder: b.sortOrder,
     })),
   };
 }

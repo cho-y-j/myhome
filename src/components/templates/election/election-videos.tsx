@@ -5,9 +5,10 @@ import type { SiteData } from "@/types/site";
 
 interface Props {
   videos: SiteData["videos"];
+  sectionTitle?: string;
 }
 
-export default function ElectionVideos({ videos }: Props) {
+export default function ElectionVideos({ videos, sectionTitle }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   if (videos.length === 0) return null;
@@ -20,7 +21,7 @@ export default function ElectionVideos({ videos }: Props) {
         {/* Section heading */}
         <div className="mb-10 text-center">
           <h2 className="section-heading text-2xl font-bold sm:text-3xl text-gray-900">
-            영상
+            {sectionTitle || "영상"}
           </h2>
         </div>
 

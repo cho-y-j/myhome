@@ -6,6 +6,7 @@ interface Props {
   candidateName: string;
   partyName: string | null;
   profileImageUrl: string | null;
+  sectionTitle?: string;
 }
 
 function TimelineItem({
@@ -48,6 +49,7 @@ export default function ElectionProfile({
   candidateName,
   partyName,
   profileImageUrl,
+  sectionTitle,
 }: Props) {
   const education = profiles
     .filter((p) => p.type === "education")
@@ -63,7 +65,7 @@ export default function ElectionProfile({
       {/* Section heading */}
       <div className="mb-10 text-center">
         <h2 className="section-heading text-2xl font-bold sm:text-3xl text-gray-900">
-          후보 소개
+          {sectionTitle || "후보 소개"}
         </h2>
       </div>
 

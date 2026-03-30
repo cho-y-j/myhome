@@ -69,4 +69,11 @@ export interface SiteData {
     title: string | null;
     sortOrder: number;
   }>;
+  blocks?: Array<{
+    id: number;
+    type: string;
+    title: string | null;
+    content: Record<string, unknown> | null;
+    sortOrder: number;
+  }>;
 }

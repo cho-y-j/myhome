@@ -5,6 +5,7 @@ import type { SiteData } from "@/types/site";
 
 interface Props {
   gallery: SiteData["gallery"];
+  sectionTitle?: string;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -16,7 +17,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   blog: "블로그",
 };
 
-export default function ElectionGallery({ gallery }: Props) {
+export default function ElectionGallery({ gallery, sectionTitle }: Props) {
   const [activeCategory, setActiveCategory] = useState("all");
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
@@ -52,7 +53,7 @@ export default function ElectionGallery({ gallery }: Props) {
       {/* Section heading */}
       <div className="mb-10 text-center">
         <h2 className="section-heading text-2xl font-bold sm:text-3xl text-gray-900">
-          사진첩
+          {sectionTitle || "사진첩"}
         </h2>
       </div>
 

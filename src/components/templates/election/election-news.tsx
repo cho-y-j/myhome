@@ -2,6 +2,7 @@ import type { SiteData } from "@/types/site";
 
 interface Props {
   news: SiteData["news"];
+  sectionTitle?: string;
 }
 
 function formatDate(dateStr: string): string {
@@ -9,7 +10,7 @@ function formatDate(dateStr: string): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default function ElectionNews({ news }: Props) {
+export default function ElectionNews({ news, sectionTitle }: Props) {
   if (news.length === 0) return null;
 
   return (
@@ -17,7 +18,7 @@ export default function ElectionNews({ news }: Props) {
       {/* Section heading */}
       <div className="mb-10 text-center">
         <h2 className="section-heading text-2xl font-bold sm:text-3xl text-gray-900">
-          관련기사
+          {sectionTitle || "관련기사"}
         </h2>
       </div>
 

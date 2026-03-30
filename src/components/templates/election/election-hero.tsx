@@ -6,6 +6,10 @@ import type { SiteData } from "@/types/site";
 interface Props {
   settings: SiteData["settings"];
   candidateName: string;
+  button1Text?: string;
+  button1Link?: string;
+  button2Text?: string;
+  button2Link?: string;
 }
 
 function useDDay(dateStr: string | null) {
@@ -39,7 +43,14 @@ function formatDDay(d: number): string {
   return `D+${Math.abs(d)}`;
 }
 
-export default function ElectionHero({ settings, candidateName }: Props) {
+export default function ElectionHero({
+  settings,
+  candidateName,
+  button1Text,
+  button1Link,
+  button2Text,
+  button2Link,
+}: Props) {
   const dDay = useDDay(settings.electionDate);
 
   /* ── Badges (당명 + 선거 D-day) ── */
@@ -92,17 +103,17 @@ export default function ElectionHero({ settings, candidateName }: Props) {
 
       <div className="flex items-center justify-center gap-3">
         <a
-          href="#pledges"
+          href={button1Link || "#pledges"}
           className="rounded-full px-7 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-lg"
           style={{ backgroundColor: "var(--primary)", filter: "brightness(0.85)" }}
         >
-          공약 보기
+          {button1Text || "공약 보기"}
         </a>
         <a
-          href="#about"
+          href={button2Link || "#about"}
           className="rounded-full border-2 border-white/50 bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
         >
-          후보 소개
+          {button2Text || "후보 소개"}
         </a>
       </div>
     </div>

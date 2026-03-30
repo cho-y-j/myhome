@@ -5,6 +5,7 @@ import type { SiteData } from "@/types/site";
 
 interface Props {
   pledges: SiteData["pledges"];
+  sectionTitle?: string;
 }
 
 function PledgeCard({
@@ -93,7 +94,7 @@ function PledgeCard({
   );
 }
 
-export default function ElectionPledges({ pledges }: Props) {
+export default function ElectionPledges({ pledges, sectionTitle }: Props) {
   if (pledges.length === 0) return null;
 
   const sorted = [...pledges].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -104,7 +105,7 @@ export default function ElectionPledges({ pledges }: Props) {
         {/* Section heading */}
         <div className="mb-4 text-center">
           <h2 className="section-heading text-2xl font-bold sm:text-3xl text-gray-900">
-            핵심 공약
+            {sectionTitle || "핵심 공약"}
           </h2>
         </div>
         <p className="mb-10 text-center text-sm text-gray-500">

@@ -2,6 +2,7 @@ import type { SiteData } from "@/types/site";
 
 interface Props {
   schedules: SiteData["schedules"];
+  sectionTitle?: string;
 }
 
 function formatDate(dateStr: string): string {
@@ -19,7 +20,7 @@ function isPast(dateStr: string): boolean {
   return d < new Date();
 }
 
-export default function ElectionSchedule({ schedules }: Props) {
+export default function ElectionSchedule({ schedules, sectionTitle }: Props) {
   if (schedules.length === 0) return null;
 
   const sorted = [...schedules].sort(
@@ -31,7 +32,7 @@ export default function ElectionSchedule({ schedules }: Props) {
       {/* Section heading */}
       <div className="mb-10 text-center">
         <h2 className="section-heading text-2xl font-bold sm:text-3xl text-gray-900">
-          일정
+          {sectionTitle || "일정"}
         </h2>
       </div>
 
