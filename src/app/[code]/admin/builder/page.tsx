@@ -92,20 +92,23 @@ interface SiteSettings {
   electionDate?: string;
   electionName?: string;
   kakaoAppKey?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImageUrl?: string;
 }
 
 /* ─── Constants ─── */
 const BLOCK_TYPES: Record<string, { label: string; icon: string; defaultTitle: string }> = {
-  hero: { label: "메인 이미지", icon: "🖼", defaultTitle: "" },
-  intro: { label: "소개", icon: "📝", defaultTitle: "후보 소개" },
-  career: { label: "이력", icon: "📋", defaultTitle: "이력" },
-  goals: { label: "핵심 목표", icon: "🎯", defaultTitle: "핵심 공약" },
-  gallery: { label: "사진첩", icon: "📸", defaultTitle: "사진첩" },
-  schedule: { label: "일정", icon: "📅", defaultTitle: "일정" },
-  news: { label: "관련기사", icon: "📰", defaultTitle: "관련기사" },
-  videos: { label: "영상", icon: "🎬", defaultTitle: "영상" },
-  contacts: { label: "연락처", icon: "📞", defaultTitle: "연락처" },
-  links: { label: "링크", icon: "🔗", defaultTitle: "링크" },
+  hero: { label: "메인 배너", icon: "🖼", defaultTitle: "" },
+  intro: { label: "후보 소개", icon: "📝", defaultTitle: "후보 소개" },
+  career: { label: "학력/경력", icon: "📋", defaultTitle: "학력·경력" },
+  goals: { label: "핵심 공약", icon: "🎯", defaultTitle: "핵심 공약" },
+  gallery: { label: "활동 사진", icon: "📸", defaultTitle: "활동 사진" },
+  schedule: { label: "선거 일정", icon: "📅", defaultTitle: "선거 일정" },
+  news: { label: "보도자료", icon: "📰", defaultTitle: "보도자료" },
+  videos: { label: "홍보 영상", icon: "🎬", defaultTitle: "홍보 영상" },
+  contacts: { label: "후원/연락", icon: "📞", defaultTitle: "후원·연락처" },
+  links: { label: "관련 링크", icon: "🔗", defaultTitle: "관련 링크" },
 };
 
 const BLOCK_TYPE_KEYS = Object.keys(BLOCK_TYPES);
@@ -195,6 +198,7 @@ export default function BuilderPage() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [showSiteInfo, setShowSiteInfo] = useState(false);
 
   /* ─── Auth check ─── */
   useEffect(() => {
@@ -299,7 +303,7 @@ export default function BuilderPage() {
     setTimeout(() => setSaveMessage(null), 2000);
   }
 
-  /* ─── Add block ─── */
+  /* ─── Add block with example content ─── */
   async function addBlock(type: string, insertIndex: number) {
     const sortOrder = insertIndex >= 0 ? insertIndex + 1 : 0;
     const res = await apiFetch<Block>("/api/site/blocks", {
@@ -307,10 +311,73 @@ export default function BuilderPage() {
       body: JSON.stringify({ type, sortOrder }),
     });
     if (res.success) {
+      // 예시 콘텐츠 자동 생성
+      await seedExampleContent(type);
       const bRes = await apiFetch<Block[]>("/api/site/blocks");
       if (bRes.success && bRes.data) setBlocks(bRes.data);
+      // 관련 데이터 리로드
+      await reloadSection(type);
     }
     setShowAddMenu(null);
+  }
+
+  /* ─── Seed example content for new blocks ─── */
+  async function seedExampleContent(type: string) {
+    switch (type) {
+      case "career": {
+        const examples = [
+          { type: "education", title: "○○대학교 행정학과 졸업", isCurrent: false },
+          { type: "career", title: "제○대 ○○구 구의회 의원", isCurrent: false },
+          { type: "career", title: "○○당 ○○시당 부위원장 (현)", isCurrent: true },
+        ];
+        for (const item of examples) {
+          await apiFetch("/api/site/profiles", { method: "POST", body: JSON.stringify(item) });
+        }
+        break;
+      }
+      case "goals": {
+        const examples = [
+          { icon: "fas fa-road", title: "교통 인프라 확충", description: "출퇴근 시간 단축을 위한 교통 개선", details: ["버스 노선 신설", "주차장 확충"] },
+          { icon: "fas fa-baby", title: "보육·교육 강화", description: "아이 키우기 좋은 지역 만들기", details: ["공립 어린이집 확대", "방과후 프로그램 지원"] },
+        ];
+        for (const item of examples) {
+          await apiFetch("/api/site/pledges", { method: "POST", body: JSON.stringify(item) });
+        }
+        break;
+      }
+      case "schedule": {
+        const today = new Date();
+        const d1 = new Date(today); d1.setDate(d1.getDate() + 3);
+        const d2 = new Date(today); d2.setDate(d2.getDate() + 7);
+        const examples = [
+          { title: "거리 유세", date: d1.toISOString().slice(0, 10), time: "10:00", location: "○○역 앞" },
+          { title: "주민 간담회", date: d2.toISOString().slice(0, 10), time: "14:00", location: "○○동 주민센터" },
+        ];
+        for (const item of examples) {
+          await apiFetch("/api/site/schedules", { method: "POST", body: JSON.stringify(item) });
+        }
+        break;
+      }
+      case "contacts": {
+        const examples = [
+          { type: "phone", value: "02-000-0000", label: "선거사무소" },
+          { type: "email", value: "example@email.com", label: "이메일" },
+        ];
+        for (const item of examples) {
+          await apiFetch("/api/site/contacts", { method: "POST", body: JSON.stringify(item) });
+        }
+        break;
+      }
+      case "intro": {
+        await apiFetch("/api/site/settings", {
+          method: "PUT",
+          body: JSON.stringify({
+            introText: "주민 여러분의 목소리에 귀 기울이겠습니다.\n지역 발전과 주민 복지를 위해 최선을 다하겠습니다.",
+          }),
+        });
+        break;
+      }
+    }
   }
 
   /* ─── Toggle visibility ─── */
@@ -399,16 +466,37 @@ export default function BuilderPage() {
             빌더
           </span>
         </div>
-        <a
-          href={`/${code}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-white/20 hover:text-white"
-        >
-          사이트 보기
-          <span className="text-xs">&#8599;</span>
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSiteInfo(!showSiteInfo)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+              showSiteInfo
+                ? "bg-blue-600 text-white"
+                : "bg-white/10 text-zinc-300 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            &#9881; 사이트 정보
+          </button>
+          <a
+            href={`/${code}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-white/20 hover:text-white"
+          >
+            사이트 보기
+            <span className="text-xs">&#8599;</span>
+          </a>
+        </div>
       </div>
+
+      {/* ── Site Info Panel ── */}
+      {showSiteInfo && (
+        <SiteInfoPanel
+          settings={settings}
+          setSettings={setSettings}
+          onClose={() => setShowSiteInfo(false)}
+        />
+      )}
 
       {/* ── Spacer for fixed top bar ── */}
       <div className="h-12" />
@@ -1832,6 +1920,174 @@ function SectionEditor({
 }
 
 /* ═══════════════════════════════════════════════
+   Site Info Panel — OG 태그, 선거일 설정
+   ═══════════════════════════════════════════════ */
+function SiteInfoPanel({
+  settings,
+  setSettings,
+  onClose,
+}: {
+  settings: SiteSettings;
+  setSettings: React.Dispatch<React.SetStateAction<SiteSettings>>;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState({
+    ogTitle: settings.ogTitle || "",
+    ogDescription: settings.ogDescription || "",
+    ogImageUrl: settings.ogImageUrl || "",
+    electionDate: settings.electionDate ? String(settings.electionDate).slice(0, 10) : "",
+    electionName: settings.electionName || "",
+  });
+  const [ogUploading, setOgUploading] = useState(false);
+  const [ogPreviewUrl, setOgPreviewUrl] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const ogFileRef = useRef<HTMLInputElement>(null);
+
+  async function save() {
+    const res = await apiFetch("/api/site/settings", {
+      method: "PUT",
+      body: JSON.stringify(form),
+    });
+    if (res.success) {
+      setSettings((prev) => ({ ...prev, ...form }));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  }
+
+  return (
+    <div className="fixed top-12 left-0 right-0 z-[90] bg-zinc-900 border-b border-white/10 shadow-2xl animate-in">
+      <div className="mx-auto max-w-5xl px-4 py-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            &#9881; 사이트 정보 &amp; 공유 설정
+          </h3>
+          <div className="flex items-center gap-2">
+            <button onClick={save} className={btnPrimary}>
+              {saved ? "저장됨 ✓" : "저장"}
+            </button>
+            <button onClick={onClose} className="rounded-lg p-1 text-zinc-500 hover:bg-white/10 hover:text-white transition-colors">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* 공유 썸네일 */}
+          <div className="rounded-lg border border-white/10 bg-zinc-800/50 p-3 space-y-2">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">공유 썸네일 (SNS 미리보기)</p>
+            <input
+              ref={ogFileRef}
+              type="file"
+              accept="image/*"
+              className="absolute w-0 h-0 opacity-0 overflow-hidden"
+              disabled={ogUploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setOgPreviewUrl(URL.createObjectURL(file));
+                setOgUploading(true);
+                const fd = new FormData();
+                fd.append("file", file);
+                const res = await fetch("/api/upload/og", { method: "POST", body: fd });
+                const json = await res.json();
+                setOgUploading(false);
+                if (json.success) {
+                  setForm((prev) => ({ ...prev, ogImageUrl: json.data.url }));
+                  setOgPreviewUrl(null);
+                }
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className={`${btnSecondary} w-full`}
+              disabled={ogUploading}
+              onClick={() => ogFileRef.current?.click()}
+            >
+              {ogUploading ? "업로드 중..." : "📷 이미지 선택"}
+            </button>
+            {(ogPreviewUrl || form.ogImageUrl) && (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={ogPreviewUrl || form.ogImageUrl} alt="OG preview" className="h-28 w-full object-cover rounded-lg" />
+                <button
+                  className="absolute top-1 right-1 rounded-full bg-red-500/80 p-0.5 text-white"
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, ogImageUrl: "" }));
+                    setOgPreviewUrl(null);
+                  }}
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <p className="text-[10px] text-zinc-600">카카오톡, 페이스북 등에 공유 시 표시되는 이미지</p>
+          </div>
+
+          {/* OG 제목/설명 */}
+          <div className="rounded-lg border border-white/10 bg-zinc-800/50 p-3 space-y-2">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">공유 제목 / 설명</p>
+            <div>
+              <label className={labelClass}>제목</label>
+              <input
+                className={inputClass}
+                value={form.ogTitle}
+                onChange={(e) => setForm({ ...form, ogTitle: e.target.value })}
+                placeholder="예: 홍길동 후보 홈페이지"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>설명</label>
+              <textarea
+                className={`${inputClass} min-h-[60px] resize-y`}
+                value={form.ogDescription}
+                onChange={(e) => setForm({ ...form, ogDescription: e.target.value })}
+                placeholder="예: 우리 지역을 바꾸겠습니다"
+              />
+            </div>
+          </div>
+
+          {/* 선거 정보 */}
+          <div className="rounded-lg border border-white/10 bg-zinc-800/50 p-3 space-y-2">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">선거 정보</p>
+            <div>
+              <label className={labelClass}>선거명</label>
+              <input
+                className={inputClass}
+                value={form.electionName}
+                onChange={(e) => setForm({ ...form, electionName: e.target.value })}
+                placeholder="예: 제22대 국회의원 선거"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>선거일</label>
+              <input
+                type="date"
+                className={inputClass}
+                value={form.electionDate}
+                onChange={(e) => setForm({ ...form, electionDate: e.target.value })}
+              />
+            </div>
+            {form.electionDate && (
+              <p className="text-xs text-zinc-400">
+                {(() => {
+                  const d = calcDDay(form.electionDate);
+                  return d !== null ? `선거까지 ${formatDDay(d)}` : "";
+                })()}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    Editor Props
    ═══════════════════════════════════════════════ */
 interface EditorBaseProps {
@@ -1892,6 +2148,7 @@ function HeroEditor({
   });
 
   const [heroUploading, setHeroUploading] = useState(false);
+  const [heroPreviewUrl, setHeroPreviewUrl] = useState<string | null>(null);
   const heroFileRef = useRef<HTMLInputElement>(null);
 
   // Update both local form and parent settings for live preview
@@ -1999,6 +2256,7 @@ function HeroEditor({
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
+              setHeroPreviewUrl(URL.createObjectURL(file));
               setHeroUploading(true);
               const fd = new FormData();
               fd.append("file", file);
@@ -2007,6 +2265,7 @@ function HeroEditor({
               setHeroUploading(false);
               if (json.success) {
                 updateField("heroImageUrl", json.data.url);
+                setHeroPreviewUrl(null);
               }
               e.target.value = "";
             }}
@@ -2028,10 +2287,10 @@ function HeroEditor({
             </button>
           )}
         </div>
-        {form.heroImageUrl && (
+        {(heroPreviewUrl || form.heroImageUrl) && (
           <div className="mt-2 rounded-lg overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={form.heroImageUrl} alt="preview" className="h-24 w-full object-cover rounded-lg" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+            <img src={heroPreviewUrl || form.heroImageUrl} alt="preview" className="h-24 w-full object-cover rounded-lg" />
           </div>
         )}
       </div>
@@ -2139,6 +2398,7 @@ function IntroEditor({
     profileImageUrl: initialSettings.profileImageUrl || "",
   });
   const [profileUploading, setProfileUploading] = useState(false);
+  const [profilePreviewUrl, setProfilePreviewUrl] = useState<string | null>(null);
   const profileFileRef = useRef<HTMLInputElement>(null);
 
   // Update both local form and parent settings for live preview
@@ -2177,6 +2437,7 @@ function IntroEditor({
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
+              setProfilePreviewUrl(URL.createObjectURL(file));
               setProfileUploading(true);
               const fd = new FormData();
               fd.append("file", file);
@@ -2185,6 +2446,7 @@ function IntroEditor({
               setProfileUploading(false);
               if (json.success) {
                 updateField("profileImageUrl", json.data.url);
+                setProfilePreviewUrl(null);
               }
               e.target.value = "";
             }}
@@ -2201,10 +2463,10 @@ function IntroEditor({
             <button className="text-xs text-red-400 hover:text-red-300" onClick={() => updateField("profileImageUrl", "")}>삭제</button>
           )}
         </div>
-        {form.profileImageUrl && (
+        {(profilePreviewUrl || form.profileImageUrl) && (
           <div className="mt-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={form.profileImageUrl} alt="preview" className="h-16 w-16 object-cover rounded-full" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+            <img src={profilePreviewUrl || form.profileImageUrl} alt="preview" className="h-16 w-16 object-cover rounded-full" />
           </div>
         )}
       </div>
@@ -2465,8 +2727,9 @@ function GalleryEditor({
   const [items, setItems] = useState<GalleryItem[]>(initialItems);
   const [newUrl, setNewUrl] = useState("");
   const [newAlt, setNewAlt] = useState("");
-  const [newCat, setNewCat] = useState("activity");
+  const [newCat, setNewCat] = useState("campaign");
   const [galleryUploading, setGalleryUploading] = useState(false);
+  const [galleryPreviewUrl, setGalleryPreviewUrl] = useState<string | null>(null);
   const galleryFileRef = useRef<HTMLInputElement>(null);
 
   async function addItem() {
@@ -2531,6 +2794,7 @@ function GalleryEditor({
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
+            setGalleryPreviewUrl(URL.createObjectURL(file));
             setGalleryUploading(true);
             const fd = new FormData();
             fd.append("file", file);
@@ -2539,6 +2803,7 @@ function GalleryEditor({
             setGalleryUploading(false);
             if (json.success) {
               setNewUrl(json.data.url);
+              setGalleryPreviewUrl(null);
             }
             e.target.value = "";
           }}
@@ -2551,10 +2816,10 @@ function GalleryEditor({
         >
           {galleryUploading ? "업로드 중..." : "📷 이미지 선택"}
         </button>
-        {newUrl && (
+        {(galleryPreviewUrl || newUrl) && (
           <div className="mt-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={newUrl} alt="preview" className="h-16 w-full object-cover rounded" />
+            <img src={galleryPreviewUrl || newUrl} alt="preview" className="h-16 w-full object-cover rounded" />
           </div>
         )}
         <div className="flex gap-2">
@@ -2569,11 +2834,11 @@ function GalleryEditor({
             value={newCat}
             onChange={(e) => setNewCat(e.target.value)}
           >
-            <option value="activity">의정활동</option>
             <option value="campaign">선거운동</option>
+            <option value="activity">의정활동</option>
+            <option value="local">지역활동</option>
             <option value="event">행사</option>
-            <option value="media">언론</option>
-            <option value="blog">블로그</option>
+            <option value="media">언론보도</option>
           </select>
         </div>
         <div className="flex justify-end">

@@ -10,11 +10,11 @@ interface Props {
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: "전체",
-  activity: "의정활동",
   campaign: "선거운동",
+  activity: "의정활동",
+  local: "지역활동",
   event: "행사",
-  media: "언론",
-  blog: "블로그",
+  media: "언론보도",
 };
 
 export default function ElectionGallery({ gallery, sectionTitle }: Props) {
@@ -86,28 +86,7 @@ export default function ElectionGallery({ gallery, sectionTitle }: Props) {
 
       {/* Image grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {filtered.map((img, idx) =>
-          img.category === "blog" ? (
-            /* 블로그 링크 카드 */
-            <a
-              key={img.id}
-              href={img.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative flex aspect-square flex-col items-center justify-center gap-2 overflow-hidden rounded-xl bg-gray-50 border border-gray-200 transition-colors hover:bg-gray-100"
-            >
-              <svg className="h-8 w-8 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.314a4.5 4.5 0 00-1.242-7.244l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757" />
-              </svg>
-              <span className="px-3 text-center text-xs font-medium text-gray-600 group-hover:text-gray-800 line-clamp-2">
-                {img.altText || "블로그 게시글"}
-              </span>
-              <span className="text-[10px] text-gray-400">
-                {img.url.replace(/https?:\/\//, "").split("/")[0]}
-              </span>
-            </a>
-          ) : (
-            /* 이미지 카드 */
+        {filtered.map((img, idx) => (
             <button
               key={img.id}
               onClick={() => setLightboxIdx(idx)}
@@ -122,8 +101,7 @@ export default function ElectionGallery({ gallery, sectionTitle }: Props) {
               />
               <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
             </button>
-          )
-        )}
+          ))}
       </div>
 
       {/* Lightbox */}

@@ -40,6 +40,15 @@ export async function POST(request: NextRequest) {
         _max: { sortOrder: true },
       });
       finalSortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
+    } else {
+      // Shift existing blocks at or after this position
+      await prisma.block.updateMany({
+        where: {
+          userId: user.id,
+          sortOrder: { gte: finalSortOrder },
+        },
+        data: { sortOrder: { increment: 1 } },
+      });
     }
 
     const block = await prisma.block.create({
