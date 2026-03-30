@@ -34,10 +34,10 @@ export function HeroSection() {
 
             <div className="flex flex-col gap-4 sm:flex-row">
               <PillButton href="/signup" variant="primary">
-                무료로 시작하기
+                시작하기
               </PillButton>
-              <PillButton href="#use-cases" variant="secondary">
-                사례 둘러보기
+              <PillButton href="/kim" variant="secondary">
+                선거후보 미리보기
               </PillButton>
             </div>
           </div>

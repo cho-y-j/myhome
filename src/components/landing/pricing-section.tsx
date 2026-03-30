@@ -103,7 +103,7 @@ export function PricingSection() {
                 variant={plan.highlighted ? "primary" : "secondary"}
                 className="w-full justify-center"
               >
-                {plan.highlighted ? "Premium 시작하기" : "무료로 시작하기"}
+                {plan.highlighted ? "Premium 시작하기" : "시작하기"}
               </PillButton>
             </div>
           </div>

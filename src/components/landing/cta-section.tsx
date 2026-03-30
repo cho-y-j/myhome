@@ -22,11 +22,11 @@ export function CtaSection() {
           지금 바로 시작해보세요
         </h2>
         <p className="mx-auto mb-10 max-w-[45ch] text-lg leading-relaxed text-zinc-400">
-          3분이면 충분합니다. 무료로 나만의 홍보 사이트를 만들어보세요.
+          3분이면 충분합니다. 나만의 홍보 사이트를 만들어보세요.
         </p>
 
         <PillButton href="/signup" variant="primary" className="mx-auto">
-          무료로 시작하기
+          시작하기
         </PillButton>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-6">
