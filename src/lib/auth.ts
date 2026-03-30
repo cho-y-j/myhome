@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "./db";
 import type { SessionUser } from "@/types/user";

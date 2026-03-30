@@ -100,6 +100,7 @@ model SiteSetting {
 
   // 히어로 섹션
   heroImageUrl   String?  @map("hero_image_url") @db.Text
+  profileImageUrl String? @map("profile_image_url") @db.Text
   heroSlogan     String?  @map("hero_slogan") @db.VarChar(200)
   heroSubSlogan  String?  @map("hero_sub_slogan") @db.VarChar(300)
 

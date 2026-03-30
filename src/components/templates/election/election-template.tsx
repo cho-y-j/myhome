@@ -10,6 +10,7 @@ import ElectionVideos from "./election-videos";
 import ElectionContacts from "./election-contacts";
 import ElectionFooter from "./election-footer";
 import ElectionNav from "./election-nav";
+import TrackingScript from "@/components/templates/tracking-script";
 
 interface Props {
   data: SiteData;
@@ -37,7 +38,7 @@ export default function ElectionTemplate({ data }: Props) {
         profiles={data.profiles}
         candidateName={user.name}
         partyName={settings.partyName}
-        heroImageUrl={settings.heroImageUrl}
+        profileImageUrl={settings.profileImageUrl}
       />
 
       <ElectionPledges pledges={data.pledges} />
@@ -58,6 +59,8 @@ export default function ElectionTemplate({ data }: Props) {
       <ElectionFooter settings={settings} candidateName={user.name} />
 
       <ElectionNav />
+
+      <TrackingScript code={user.code} />
     </div>
   );
 }

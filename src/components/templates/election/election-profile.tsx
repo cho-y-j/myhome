@@ -5,7 +5,7 @@ interface Props {
   profiles: SiteData["profiles"];
   candidateName: string;
   partyName: string | null;
-  heroImageUrl: string | null;
+  profileImageUrl: string | null;
 }
 
 function TimelineItem({
@@ -47,7 +47,7 @@ export default function ElectionProfile({
   profiles,
   candidateName,
   partyName,
-  heroImageUrl,
+  profileImageUrl,
 }: Props) {
   const education = profiles
     .filter((p) => p.type === "education")
@@ -78,13 +78,13 @@ export default function ElectionProfile({
         </div>
       )}
 
-      {/* Profile photo card */}
-      {heroImageUrl && (
+      {/* Profile photo (별도 인물 사진) */}
+      {profileImageUrl && (
         <div className="mx-auto mb-12 flex flex-col items-center">
-          <div className="relative h-48 w-48 sm:h-56 sm:w-56 overflow-hidden rounded-2xl shadow-lg border-4 border-white">
+          <div className="relative h-40 w-40 sm:h-48 sm:w-48 overflow-hidden rounded-full shadow-lg border-4 border-white">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={heroImageUrl}
+              src={profileImageUrl}
               alt={candidateName}
               className="h-full w-full object-cover object-top"
             />

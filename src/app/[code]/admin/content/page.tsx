@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import { IconifyIcon } from "@/components/ui/iconify-icon";
 
@@ -28,6 +28,73 @@ const btnPrimary =
   "rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50";
 const btnSecondary =
   "rounded-xl border border-white/10 bg-zinc-800 px-4 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-700";
+
+/* ─── 이미지 업로드 컴포넌트 ─── */
+function ImageUploadField({
+  label, description, value, onChange, uploadType, previewClass,
+}: {
+  label: string; description: string; value: string;
+  onChange: (url: string) => void; uploadType: string; previewClass: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(`/api/upload/${uploadType}`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success) {
+        onChange(data.data.url);
+      } else {
+        alert(data.error || "업로드 실패");
+      }
+    } catch {
+      alert("업로드에 실패했습니다");
+    }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  return (
+    <div>
+      <label className={labelClass}>{label}</label>
+      <div className="flex gap-2">
+        <input
+          className={`${inputClass} flex-1`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="URL 직접 입력 또는 아래 버튼으로 업로드"
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="shrink-0 rounded-xl bg-zinc-700 px-4 py-2.5 text-sm text-zinc-200 hover:bg-zinc-600 disabled:opacity-50"
+        >
+          {uploading ? "업로드 중..." : "파일 선택"}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+      </div>
+      <p className="mt-1 text-xs text-zinc-600">{description}</p>
+      {value && (
+        <div className="mt-2 flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={value} alt={label} className={previewClass}
+            onError={e => (e.target as HTMLImageElement).style.display = "none"} />
+          <button type="button" onClick={() => onChange("")}
+            className="text-xs text-red-400 hover:text-red-300">제거</button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════════
    Main content page
@@ -103,12 +170,16 @@ function PlaceholderTab({ label }: { label: string }) {
 interface SiteSettings {
   heroSlogan?: string;
   heroSubSlogan?: string;
+  heroImageUrl?: string;
+  profileImageUrl?: string;
   partyName?: string;
   positionTitle?: string;
   subtitle?: string;
   introText?: string;
   primaryColor?: string;
   accentColor?: string;
+  electionName?: string;
+  electionDate?: string;
 }
 
 function SettingsTab() {
@@ -157,6 +228,31 @@ function SettingsTab() {
   return (
     <form onSubmit={handleSave} className="max-w-2xl space-y-5">
       <h2 className="text-lg font-semibold text-zinc-200">사이트 기본설정</h2>
+
+      {/* 이미지 설정 */}
+      <div className="rounded-xl border border-white/10 bg-zinc-800/30 p-4 space-y-5">
+        <p className="text-sm font-medium text-zinc-300">이미지 설정</p>
+
+        {/* 히어로 배경 이미지 */}
+        <ImageUploadField
+          label="히어로 배경 이미지"
+          description="메인 상단 배경 이미지. 비워두면 정당 컬러 그라데이션으로 표시됩니다."
+          value={form.heroImageUrl ?? ""}
+          onChange={(url) => update("heroImageUrl", url)}
+          uploadType="hero"
+          previewClass="h-20 rounded-lg object-cover"
+        />
+
+        {/* 후보 소개 프로필 사진 */}
+        <ImageUploadField
+          label="후보 소개 프로필 사진"
+          description="후보 소개 섹션에 표시되는 인물 사진. 비워두면 텍스트만 표시됩니다."
+          value={form.profileImageUrl ?? ""}
+          onChange={(url) => update("profileImageUrl", url)}
+          uploadType="image"
+          previewClass="h-20 w-20 rounded-full object-cover"
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
@@ -218,6 +314,27 @@ function SettingsTab() {
           onChange={(e) => update("introText", e.target.value)}
           placeholder="후보자 소개 메시지를 입력하세요"
         />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelClass}>선거명</label>
+          <input
+            className={inputClass}
+            value={form.electionName ?? "제22대 전국동시지방선거"}
+            onChange={(e) => update("electionName", e.target.value)}
+            placeholder="제22대 전국동시지방선거"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>선거일</label>
+          <input
+            type="date"
+            className={inputClass}
+            value={form.electionDate ?? "2026-06-03"}
+            onChange={(e) => update("electionDate", e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -496,6 +613,7 @@ interface Pledge {
   id: number;
   title: string;
   description?: string;
+  details?: string[];
   category?: string;
   sortOrder: number;
 }
@@ -504,7 +622,7 @@ function PledgesTab() {
   const [pledges, setPledges] = useState<Pledge[]>([]);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Pledge | null>(null);
-  const [form, setForm] = useState({ title: "", description: "", category: "" });
+  const [form, setForm] = useState({ title: "", description: "", category: "", details: "" });
 
   const load = useCallback(() => {
     fetch("/api/site/pledges")
@@ -515,17 +633,18 @@ function PledgesTab() {
   useEffect(() => { load(); }, [load]);
 
   function resetForm() {
-    setForm({ title: "", description: "", category: "" });
+    setForm({ title: "", description: "", category: "", details: "" });
     setAdding(false);
     setEditing(null);
   }
 
   async function handleAdd() {
     if (!form.title.trim()) return;
+    const detailsArr = form.details.split("\n").map((s) => s.trim()).filter(Boolean);
     const res = await fetch("/api/site/pledges", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, details: detailsArr }),
     });
     const data = await res.json();
     if (data.success) { resetForm(); load(); }
@@ -533,10 +652,11 @@ function PledgesTab() {
 
   async function handleUpdate() {
     if (!editing) return;
+    const detailsArr = form.details.split("\n").map((s) => s.trim()).filter(Boolean);
     const res = await fetch(`/api/site/pledges/${editing.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, details: detailsArr }),
     });
     const data = await res.json();
     if (data.success) { resetForm(); load(); }
@@ -551,7 +671,8 @@ function PledgesTab() {
 
   function startEdit(p: Pledge) {
     setEditing(p);
-    setForm({ title: p.title, description: p.description ?? "", category: p.category ?? "" });
+    const detailsStr = (p.details ?? []).join("\n");
+    setForm({ title: p.title, description: p.description ?? "", category: p.category ?? "", details: detailsStr });
   }
 
   return (
@@ -596,6 +717,16 @@ function PledgesTab() {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder="공약 상세 설명"
             />
+          </div>
+          <div>
+            <label className={labelClass}>세부 공약 (줄바꿈으로 구분)</label>
+            <textarea
+              className={`${inputClass} min-h-[100px] resize-y`}
+              value={form.details}
+              onChange={(e) => setForm({ ...form, details: e.target.value })}
+              placeholder={"세부 항목 1\n세부 항목 2\n세부 항목 3"}
+            />
+            <p className="mt-1 text-xs text-zinc-600">한 줄에 하나씩 입력하면 공개 사이트에서 목록으로 표시됩니다</p>
           </div>
           <div className="flex gap-2">
             <button onClick={editing ? handleUpdate : handleAdd} className={btnPrimary}>

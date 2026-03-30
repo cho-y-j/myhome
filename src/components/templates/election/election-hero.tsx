@@ -42,119 +42,115 @@ function formatDDay(d: number): string {
 export default function ElectionHero({ settings, candidateName }: Props) {
   const dDay = useDDay(settings.electionDate);
 
+  /* ── Badges (당명 + 선거 D-day) ── */
+  const badges = (
+    <div className="flex items-center justify-center gap-3 flex-wrap">
+      {settings.partyName && (
+        <span
+          className="rounded-full bg-white/90 px-4 py-1.5 text-xs font-bold tracking-wide shadow-sm"
+          style={{ color: "var(--primary)" }}
+        >
+          {settings.partyName}
+        </span>
+      )}
+      {dDay !== null && settings.electionDate && (
+        <span
+          className="rounded-full px-4 py-1.5 text-xs font-bold text-white tracking-wide shadow-sm"
+          style={{ backgroundColor: "var(--primary)" }}
+        >
+          {settings.electionName ? `${settings.electionName} ` : ""}
+          {formatDDay(dDay)}
+        </span>
+      )}
+    </div>
+  );
+
+  /* ── Slogan area ── */
+  const sloganArea = (
+    <div className="text-center text-white px-6 py-12 sm:py-16">
+      {settings.positionTitle && (
+        <p className="text-sm font-medium tracking-widest uppercase opacity-90 mb-3">
+          {settings.positionTitle}
+        </p>
+      )}
+
+      <h1 className="text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl mb-4">
+        {candidateName}
+      </h1>
+
+      {settings.heroSlogan && (
+        <p className="text-xl font-semibold sm:text-2xl leading-snug mb-2">
+          &ldquo;{settings.heroSlogan}&rdquo;
+        </p>
+      )}
+
+      {settings.heroSubSlogan && (
+        <p className="text-sm opacity-75 leading-relaxed max-w-md mx-auto mb-8">
+          {settings.heroSubSlogan}
+        </p>
+      )}
+
+      <div className="flex items-center justify-center gap-3">
+        <a
+          href="#pledges"
+          className="rounded-full px-7 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-lg"
+          style={{ backgroundColor: "var(--primary)", filter: "brightness(0.85)" }}
+        >
+          공약 보기
+        </a>
+        <a
+          href="#about"
+          className="rounded-full border-2 border-white/50 bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+        >
+          후보 소개
+        </a>
+      </div>
+    </div>
+  );
+
   return (
-    <section
-      id="hero"
-      className="relative w-full min-h-screen flex flex-col items-center justify-center overflow-hidden"
-    >
-      {/* Background with hero image and gradient overlay */}
+    <section id="hero" className="w-full">
       {settings.heroImageUrl ? (
-        <div className="absolute inset-0">
+        <>
+          {/* ① 컬러 바 — 이미지 위 별도 영역 */}
+          <div
+            className="w-full px-4 py-4"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            {badges}
+          </div>
+
+          {/* ② 히어로 이미지 — 풀 너비, 오버레이 없음 */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={settings.heroImageUrl}
             alt={candidateName}
-            className="h-full w-full object-cover object-top"
+            className="w-full"
           />
+
+          {/* ③ 슬로건 영역 — 이미지 아래 별도 섹션 */}
           <div
-            className="absolute inset-0"
             style={{
-              background: `linear-gradient(to bottom, var(--primary) 0%, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.85) 100%)`,
+              background: `linear-gradient(180deg, var(--primary) 0%, #1a1a2e 100%)`,
             }}
-          />
-        </div>
+          >
+            {sloganArea}
+          </div>
+        </>
       ) : (
+        /* 이미지 없으면: 뱃지 + 슬로건 하나의 그라데이션 섹션 */
         <div
-          className="absolute inset-0"
+          className="w-full"
           style={{
             background: `linear-gradient(180deg, var(--primary) 0%, #1a1a2e 100%)`,
           }}
-        />
-      )}
-
-      {/* Top badges */}
-      <div className="absolute top-6 left-0 right-0 z-10 flex items-center justify-center gap-3 px-6">
-        {settings.partyName && (
-          <span className="rounded-full bg-white px-4 py-1.5 text-xs font-bold tracking-wide"
-            style={{ color: "var(--primary)" }}
-          >
-            {settings.partyName}
-          </span>
-        )}
-        {dDay !== null && settings.electionDate && (
-          <span
-            className="rounded-full px-4 py-1.5 text-xs font-bold text-white tracking-wide"
-            style={{ backgroundColor: "var(--primary)" }}
-          >
-            {settings.electionName ? `${settings.electionName} ` : ""}
-            {formatDDay(dDay)}
-          </span>
-        )}
-      </div>
-
-      {/* Center content */}
-      <div className="relative z-10 flex flex-col items-center gap-3 px-6 text-center text-white mt-16">
-        {/* Position title */}
-        {settings.positionTitle && (
-          <p className="text-sm font-medium tracking-widest uppercase opacity-90">
-            {settings.positionTitle}
-          </p>
-        )}
-
-        {/* Candidate name */}
-        <h1 className="text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-          {candidateName}
-        </h1>
-
-        {/* Slogan */}
-        {settings.heroSlogan && (
-          <p className="mt-2 max-w-lg text-2xl font-semibold sm:text-3xl leading-snug">
-            {settings.heroSlogan}
-          </p>
-        )}
-
-        {/* Sub-slogan */}
-        {settings.heroSubSlogan && (
-          <p className="max-w-md text-lg opacity-75 leading-relaxed">
-            {settings.heroSubSlogan}
-          </p>
-        )}
-
-        {/* CTA buttons */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href="#pledges"
-            className="rounded-full px-7 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--primary)" }}
-          >
-            공약 보기
-          </a>
-          <a
-            href="#about"
-            className="rounded-full border-2 border-white/60 bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-          >
-            후보 소개
-          </a>
-        </div>
-      </div>
-
-      {/* Scroll down arrow */}
-      <div className="absolute bottom-8 z-10 flex flex-col items-center gap-1 animate-bounce">
-        <span className="text-xs text-white/50 tracking-wider">SCROLL</span>
-        <svg
-          className="h-5 w-5 text-white/50"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </div>
+          <div className="px-4 pt-10 pb-4">
+            {badges}
+          </div>
+          {sloganArea}
+        </div>
+      )}
     </section>
   );
 }

@@ -26,7 +26,7 @@ export default function ElectionKeywords({ pledges }: Props) {
   if (keywords.length === 0) return null;
 
   return (
-    <section className="relative -mt-16 z-20 mx-auto max-w-4xl px-6">
+    <section className="relative z-20 mx-auto max-w-4xl px-6 py-8 bg-white">
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
         {keywords.map((pledge, idx) => (
           <div

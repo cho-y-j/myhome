@@ -57,6 +57,7 @@ async function getSiteData(code: string): Promise<SiteData | null> {
   return {
     user: {
       name: user.name,
+      code,
       templateType: user.templateType,
       plan: user.plan,
     },
@@ -65,6 +66,7 @@ async function getSiteData(code: string): Promise<SiteData | null> {
       ogDescription: settings?.ogDescription ?? null,
       ogImageUrl: settings?.ogImageUrl ?? null,
       heroImageUrl: settings?.heroImageUrl ?? null,
+      profileImageUrl: settings?.profileImageUrl ?? null,
       heroSlogan: settings?.heroSlogan ?? null,
       heroSubSlogan: settings?.heroSubSlogan ?? null,
       partyName: settings?.partyName ?? null,

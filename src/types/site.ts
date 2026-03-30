@@ -1,10 +1,11 @@
 export interface SiteData {
-  user: { name: string; templateType: string; plan: string };
+  user: { name: string; code: string; templateType: string; plan: string };
   settings: {
     ogTitle: string | null;
     ogDescription: string | null;
     ogImageUrl: string | null;
     heroImageUrl: string | null;
+    profileImageUrl: string | null;
     heroSlogan: string | null;
     heroSubSlogan: string | null;
     partyName: string | null;
