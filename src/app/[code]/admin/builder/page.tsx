@@ -1668,6 +1668,7 @@ function SectionEditor({
         <IntroEditor
           block={block}
           settings={settings}
+          setSettings={setSettings}
           onSaving={onSaving}
           onSaved={onSaved}
           onCancel={onCancel}
@@ -1819,6 +1820,15 @@ function HeroEditor({
     accentColor: initialSettings.accentColor || "#1A56DB",
   });
 
+  const [heroUploading, setHeroUploading] = useState(false);
+
+  // Update both local form and parent settings for live preview
+  const updateField = (field: string, value: string) => {
+    const newForm = { ...form, [field]: value };
+    setForm(newForm);
+    setSettings((prev: SiteSettings) => ({ ...prev, [field]: value }));
+  };
+
   const [buttonForm, setButtonForm] = useState({
     button1Text: heroContent?.button1Text || "공약 보기",
     button1Link: heroContent?.button1Link || "#pledges",
@@ -1828,8 +1838,7 @@ function HeroEditor({
 
   // Update CSS custom properties in real-time when colors change
   function handleColorChange(field: "primaryColor" | "accentColor", value: string) {
-    setForm({ ...form, [field]: value });
-    setSettings((prev) => ({ ...prev, [field]: value }));
+    updateField(field, value);
   }
 
   async function save() {
@@ -1907,24 +1916,43 @@ function HeroEditor({
       </div>
 
       <div>
-        <label className={labelClass}>히어로 이미지 URL</label>
-        <input
-          className={inputClass}
-          value={form.heroImageUrl}
-          onChange={(e) => setForm({ ...form, heroImageUrl: e.target.value })}
-          placeholder="https://example.com/hero.jpg"
-        />
+        <label className={labelClass}>히어로 이미지</label>
+        <div className="flex gap-2 items-center">
+          <label className={`${btnSecondary} cursor-pointer inline-flex items-center gap-1`}>
+            {heroUploading ? "업로드 중..." : "📷 이미지 선택"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={heroUploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setHeroUploading(true);
+                const fd = new FormData();
+                fd.append("file", file);
+                const res = await fetch("/api/upload/hero", { method: "POST", body: fd });
+                const json = await res.json();
+                setHeroUploading(false);
+                if (json.success) {
+                  updateField("heroImageUrl", json.data.url);
+                }
+              }}
+            />
+          </label>
+          {form.heroImageUrl && (
+            <button
+              className="text-xs text-red-400 hover:text-red-300"
+              onClick={() => updateField("heroImageUrl", "")}
+            >
+              삭제
+            </button>
+          )}
+        </div>
         {form.heroImageUrl && (
           <div className="mt-2 rounded-lg overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={form.heroImageUrl}
-              alt="preview"
-              className="h-24 w-full object-cover rounded-lg"
-              onError={(e) =>
-                ((e.target as HTMLImageElement).style.display = "none")
-              }
-            />
+            <img src={form.heroImageUrl} alt="preview" className="h-24 w-full object-cover rounded-lg" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
           </div>
         )}
       </div>
@@ -1933,7 +1961,7 @@ function HeroEditor({
         <input
           className={inputClass}
           value={form.heroSlogan}
-          onChange={(e) => setForm({ ...form, heroSlogan: e.target.value })}
+          onChange={(e) => updateField("heroSlogan", e.target.value)}
           placeholder="메인 슬로건"
         />
       </div>
@@ -1942,7 +1970,7 @@ function HeroEditor({
         <input
           className={inputClass}
           value={form.heroSubSlogan}
-          onChange={(e) => setForm({ ...form, heroSubSlogan: e.target.value })}
+          onChange={(e) => updateField("heroSubSlogan", e.target.value)}
           placeholder="서브 슬로건"
         />
       </div>
@@ -1951,7 +1979,7 @@ function HeroEditor({
         <input
           className={inputClass}
           value={form.partyName}
-          onChange={(e) => setForm({ ...form, partyName: e.target.value })}
+          onChange={(e) => updateField("partyName", e.target.value)}
           placeholder="정당명"
         />
       </div>
@@ -1960,7 +1988,7 @@ function HeroEditor({
         <input
           className={inputClass}
           value={form.positionTitle}
-          onChange={(e) => setForm({ ...form, positionTitle: e.target.value })}
+          onChange={(e) => updateField("positionTitle", e.target.value)}
           placeholder="예: 제00대 국회의원 후보"
         />
       </div>
@@ -2021,15 +2049,24 @@ function HeroEditor({
 function IntroEditor({
   block,
   settings: initialSettings,
+  setSettings,
   onSaving,
   onSaved,
   onCancel,
-}: EditorBaseProps & { settings: SiteSettings }) {
+}: EditorBaseProps & { settings: SiteSettings; setSettings: React.Dispatch<React.SetStateAction<SiteSettings>> }) {
   const [form, setForm] = useState({
     subtitle: initialSettings.subtitle || "",
     introText: initialSettings.introText || "",
     profileImageUrl: initialSettings.profileImageUrl || "",
   });
+  const [profileUploading, setProfileUploading] = useState(false);
+
+  // Update both local form and parent settings for live preview
+  const updateField = (field: string, value: string) => {
+    const newForm = { ...form, [field]: value };
+    setForm(newForm);
+    setSettings((prev: SiteSettings) => ({ ...prev, [field]: value }));
+  };
 
   async function save() {
     onSaving();
@@ -2049,22 +2086,47 @@ function IntroEditor({
   return (
     <div className="space-y-3">
       <div>
-        <label className={labelClass}>프로필 이미지 URL</label>
-        <input
-          className={inputClass}
-          value={form.profileImageUrl}
-          onChange={(e) =>
-            setForm({ ...form, profileImageUrl: e.target.value })
-          }
-          placeholder="https://example.com/profile.jpg"
-        />
+        <label className={labelClass}>프로필 이미지</label>
+        <div className="flex gap-2 items-center">
+          <label className={`${btnSecondary} cursor-pointer inline-flex items-center gap-1`}>
+            {profileUploading ? "업로드 중..." : "📷 이미지 선택"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={profileUploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setProfileUploading(true);
+                const fd = new FormData();
+                fd.append("file", file);
+                const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+                const json = await res.json();
+                setProfileUploading(false);
+                if (json.success) {
+                  updateField("profileImageUrl", json.data.url);
+                }
+              }}
+            />
+          </label>
+          {form.profileImageUrl && (
+            <button className="text-xs text-red-400 hover:text-red-300" onClick={() => updateField("profileImageUrl", "")}>삭제</button>
+          )}
+        </div>
+        {form.profileImageUrl && (
+          <div className="mt-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={form.profileImageUrl} alt="preview" className="h-16 w-16 object-cover rounded-full" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+          </div>
+        )}
       </div>
       <div>
         <label className={labelClass}>제목 (부제)</label>
         <input
           className={inputClass}
           value={form.subtitle}
-          onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+          onChange={(e) => updateField("subtitle", e.target.value)}
           placeholder="소개 섹션 제목"
         />
       </div>
@@ -2073,7 +2135,7 @@ function IntroEditor({
         <textarea
           className={`${inputClass} min-h-[100px] resize-y`}
           value={form.introText}
-          onChange={(e) => setForm({ ...form, introText: e.target.value })}
+          onChange={(e) => updateField("introText", e.target.value)}
           placeholder="소개 내용을 입력해주세요"
         />
       </div>
@@ -2317,6 +2379,7 @@ function GalleryEditor({
   const [newUrl, setNewUrl] = useState("");
   const [newAlt, setNewAlt] = useState("");
   const [newCat, setNewCat] = useState("activity");
+  const [galleryUploading, setGalleryUploading] = useState(false);
 
   async function addItem() {
     if (!newUrl.trim()) return;
@@ -2371,12 +2434,34 @@ function GalleryEditor({
 
       <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-2">
         <p className="text-xs font-medium text-zinc-500">새 사진 추가</p>
-        <input
-          className={inputClass}
-          value={newUrl}
-          onChange={(e) => setNewUrl(e.target.value)}
-          placeholder="이미지 URL"
-        />
+        <label className={`${btnSecondary} cursor-pointer inline-flex items-center gap-1 w-full justify-center`}>
+          {galleryUploading ? "업로드 중..." : "📷 이미지 선택"}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={galleryUploading}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setGalleryUploading(true);
+              const fd = new FormData();
+              fd.append("file", file);
+              const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+              const json = await res.json();
+              setGalleryUploading(false);
+              if (json.success) {
+                setNewUrl(json.data.url);
+              }
+            }}
+          />
+        </label>
+        {newUrl && (
+          <div className="mt-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={newUrl} alt="preview" className="h-16 w-full object-cover rounded" />
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             className={`${inputClass} flex-1`}
