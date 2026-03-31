@@ -53,6 +53,8 @@ export async function PUT(request: NextRequest) {
       return errorResponse("유효하지 않은 색상 코드입니다", 400);
     }
 
+    const { profileImageUrl } = body;
+
     const settings = await prisma.siteSetting.upsert({
       where: { userId: user.id },
       update: {
@@ -60,6 +62,7 @@ export async function PUT(request: NextRequest) {
         ogDescription,
         ogImageUrl,
         heroImageUrl,
+        profileImageUrl,
         heroSlogan,
         heroSubSlogan,
         partyName,
@@ -78,6 +81,7 @@ export async function PUT(request: NextRequest) {
         ogDescription,
         ogImageUrl,
         heroImageUrl,
+        profileImageUrl,
         heroSlogan,
         heroSubSlogan,
         partyName,
