@@ -275,8 +275,8 @@ export default function SignupPage() {
                   value={form.password}
                   onChange={(e) => update("password", e.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 outline-none focus:border-accent/50"
-                  placeholder="6자 이상"
-                  minLength={6}
+                  placeholder="8자 이상"
+                  minLength={8}
                   required
                 />
               </div>

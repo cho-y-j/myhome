@@ -19,14 +19,25 @@ const MAGIC_BYTES: Record<string, number[]> = {
   "image/gif": [0x47, 0x49, 0x46],
 };
 
+// Maximum single-file upload size: 10 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 /**
- * Validates file by MIME type, extension, and magic bytes (3-layer check).
+ * Validates file by size, MIME type, extension, and magic bytes (4-layer check).
  */
 export function validateFile(
   buffer: Buffer,
   mimeType: string,
   originalName: string
 ): { valid: boolean; error?: string } {
+  // 0. File size check
+  if (buffer.length > MAX_FILE_SIZE) {
+    return {
+      valid: false,
+      error: `파일 크기가 제한을 초과했습니다 (최대 ${MAX_FILE_SIZE / 1024 / 1024}MB)`,
+    };
+  }
+
   // 1. MIME type check
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
     return {
@@ -84,9 +95,18 @@ export async function saveFile(
 
 /**
  * Deletes a file from disk given its relative URL path.
+ * Validates that the resolved path stays within the uploads directory
+ * to prevent path-traversal attacks.
  */
 export async function deleteFile(relativePath: string): Promise<void> {
-  const filePath = path.join(process.cwd(), "public", relativePath);
+  const uploadsDir = path.resolve(process.cwd(), "public", "uploads");
+  const filePath = path.resolve(process.cwd(), "public", relativePath);
+
+  // Prevent path traversal: resolved path must be inside uploads directory
+  if (!filePath.startsWith(uploadsDir + path.sep) && filePath !== uploadsDir) {
+    throw new Error("Invalid file path");
+  }
+
   try {
     await fs.unlink(filePath);
   } catch {

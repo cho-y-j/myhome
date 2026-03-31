@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
       return errorResponse("사이트 코드는 영문 소문자와 숫자 3~20자만 가능합니다", 400);
     }
 
-    if (password.length < 6) {
-      return errorResponse("비밀번호는 6자 이상이어야 합니다", 400);
+    if (password.length < 8) {
+      return errorResponse("비밀번호는 8자 이상이어야 합니다", 400);
     }
 
     // 코드 중복 검사

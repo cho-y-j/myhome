@@ -207,9 +207,16 @@ export default function BuilderPage() {
       .then((data) => {
         if (!data.success) {
           router.push(`/${code}/admin/login`);
-        } else {
-          setSiteName(data.data?.user?.name || code);
+          return;
         }
+        const user = data.data?.user;
+        // Verify the logged-in user's code matches the URL code.
+        // Super admins may access any admin panel.
+        if (user?.userType !== "super_admin" && user?.code !== code) {
+          router.push(`/${code}/admin/login`);
+          return;
+        }
+        setSiteName(user?.name || code);
       })
       .catch(() => router.push(`/${code}/admin/login`));
   }, [code, router]);
