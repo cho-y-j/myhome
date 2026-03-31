@@ -167,7 +167,7 @@ export async function generateMetadata({
       title,
       description,
       ...(settings.ogImageUrl && {
-        images: [{ url: settings.ogImageUrl }],
+        images: [{ url: settings.ogImageUrl.startsWith("http") ? settings.ogImageUrl : `https://k.on1.kr${settings.ogImageUrl}` }],
       }),
       locale: "ko_KR",
       type: "website",
