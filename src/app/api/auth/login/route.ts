@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown";
 
-    const rateLimit = checkRateLimit(`login:${ip}`, 5, 15 * 60 * 1000);
+    const rateLimit = checkRateLimit(`login:${ip}`, 20, 15 * 60 * 1000);
     if (!rateLimit.allowed) {
-      return errorResponse("로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요 (0/5)", 429);
+      return errorResponse("로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요", 429);
     }
     const userAgent = request.headers.get("user-agent") || "";
 
