@@ -2185,6 +2185,7 @@ function HeroEditor({
     button2Text?: string;
     button2Link?: string;
     badgeFontSize?: string;
+    electionFontSize?: string;
   } | null;
 
   const [form, setForm] = useState({
