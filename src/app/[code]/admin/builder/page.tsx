@@ -628,6 +628,7 @@ export default function BuilderPage() {
                     block={editBlock}
                     settings={settings}
                     setSettings={setSettings}
+                    setBlocks={setBlocks}
                     profiles={profiles}
                     pledges={pledges}
                     gallery={gallery}
@@ -688,6 +689,7 @@ export default function BuilderPage() {
                       block={editBlock}
                       settings={settings}
                       setSettings={setSettings}
+                      setBlocks={setBlocks}
                       profiles={profiles}
                       pledges={pledges}
                       gallery={gallery}
@@ -1000,28 +1002,28 @@ function HeroPreview({
     button1Link?: string;
     button2Text?: string;
     button2Link?: string;
-    badgeFontSize?: string;
-    electionFontSize?: string;
+    badgeFontSize?: number;
+    electionFontSize?: number;
   } | null;
   const button1Text = heroContent?.button1Text || "공약 보기";
   const button2Text = heroContent?.button2Text || "후보 소개";
-  const partySize = heroContent?.badgeFontSize || "text-xs";
-  const electionSize = heroContent?.electionFontSize || "text-xs";
+  const partySize = heroContent?.badgeFontSize || 12;
+  const electionSize = heroContent?.electionFontSize || 12;
 
   const badges = (
     <div className="flex items-center justify-center gap-3 flex-wrap">
       {settings.partyName && (
         <span
-          className={`rounded-full bg-white/90 px-4 py-1.5 ${partySize} font-bold tracking-wide shadow-sm`}
-          style={{ color: "var(--primary)" }}
+          className="rounded-full bg-white/90 px-4 py-1.5 font-bold tracking-wide shadow-sm"
+          style={{ color: "var(--primary)", fontSize: `${partySize}px` }}
         >
           {settings.partyName}
         </span>
       )}
       {dDay !== null && settings.electionDate && (
         <span
-          className={`rounded-full px-4 py-1.5 ${electionSize} font-bold text-white tracking-wide shadow-sm`}
-          style={{ backgroundColor: "var(--primary)" }}
+          className="rounded-full px-4 py-1.5 font-bold text-white tracking-wide shadow-sm"
+          style={{ backgroundColor: "var(--primary)", fontSize: `${electionSize}px` }}
         >
           {settings.electionName ? `${settings.electionName} ` : ""}
           {formatDDay(dDay)}
@@ -1832,6 +1834,7 @@ function SectionEditor({
   onSaving,
   onSaved,
   onCancel,
+  setBlocks,
 }: {
   block: Block;
   settings: SiteSettings;
@@ -1846,6 +1849,7 @@ function SectionEditor({
   onSaving: () => void;
   onSaved: () => void;
   onCancel: () => void;
+  setBlocks: React.Dispatch<React.SetStateAction<Block[]>>;
 }) {
   switch (block.type) {
     case "hero":
@@ -1854,6 +1858,7 @@ function SectionEditor({
           block={block}
           settings={settings}
           setSettings={setSettings}
+          setBlocks={setBlocks}
           onSaving={onSaving}
           onSaved={onSaved}
           onCancel={onCancel}
@@ -2178,14 +2183,14 @@ function HeroEditor({
   onSaving,
   onSaved,
   onCancel,
-}: EditorBaseProps & { settings: SiteSettings; setSettings: React.Dispatch<React.SetStateAction<SiteSettings>> }) {
+}: EditorBaseProps & { settings: SiteSettings; setSettings: React.Dispatch<React.SetStateAction<SiteSettings>>; setBlocks: React.Dispatch<React.SetStateAction<Block[]>> }) {
   const heroContent = block.content as {
     button1Text?: string;
     button1Link?: string;
     button2Text?: string;
     button2Link?: string;
-    badgeFontSize?: string;
-    electionFontSize?: string;
+    badgeFontSize?: number;
+    electionFontSize?: number;
   } | null;
 
   const [form, setForm] = useState({
@@ -2214,9 +2219,23 @@ function HeroEditor({
     button1Link: heroContent?.button1Link || "#pledges",
     button2Text: heroContent?.button2Text || "후보 소개",
     button2Link: heroContent?.button2Link || "#about",
-    badgeFontSize: heroContent?.badgeFontSize || "text-xs",
-    electionFontSize: heroContent?.electionFontSize || "text-xs",
+    badgeFontSize: heroContent?.badgeFontSize || 12,
+    electionFontSize: heroContent?.electionFontSize || 12,
   });
+
+  // 블록 콘텐츠 실시간 업데이트 (미리보기 즉시 반영)
+  function updateBlockContent(updates: Record<string, unknown>) {
+    const newButtonForm = { ...buttonForm, ...updates };
+    setButtonForm(newButtonForm as typeof buttonForm);
+    // blocks state 직접 업데이트 → 미리보기 즉시 반영
+    setBlocks((prev) =>
+      prev.map((b) =>
+        b.id === block.id
+          ? { ...b, content: { ...heroContent, ...newButtonForm, ...updates } }
+          : b
+      )
+    );
+  }
 
   // Update CSS custom properties in real-time when colors change
   function handleColorChange(field: "primaryColor" | "accentColor", value: string) {
@@ -2389,67 +2408,29 @@ function HeroEditor({
 
       {/* Font size controls */}
       <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-3">
-        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">글씨 크기 조절</p>
-        <div>
-          <label className={labelClass}>당명</label>
-          <div className="flex gap-1">
-            {[
-              { value: "text-[10px]", label: "XS" },
-              { value: "text-xs", label: "S" },
-              { value: "text-sm", label: "M" },
-              { value: "text-base", label: "L" },
-              { value: "text-lg", label: "XL" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                onClick={async () => {
-                  const updated = { ...buttonForm, badgeFontSize: opt.value };
-                  setButtonForm(updated);
-                  await apiFetch(`/api/site/blocks/${block.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({ content: { ...heroContent, ...updated } }),
-                  });
-                }}
-                className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${
-                  buttonForm.badgeFontSize === opt.value
-                    ? "bg-blue-600 text-white"
-                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">글씨 크기 (px)</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>당명</label>
+            <input
+              type="number"
+              min={8}
+              max={40}
+              className={inputClass}
+              value={buttonForm.badgeFontSize}
+              onChange={(e) => updateBlockContent({ badgeFontSize: Number(e.target.value) })}
+            />
           </div>
-        </div>
-        <div>
-          <label className={labelClass}>선거 D-Day</label>
-          <div className="flex gap-1">
-            {[
-              { value: "text-[10px]", label: "XS" },
-              { value: "text-xs", label: "S" },
-              { value: "text-sm", label: "M" },
-              { value: "text-base", label: "L" },
-              { value: "text-lg", label: "XL" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                onClick={async () => {
-                  const updated = { ...buttonForm, electionFontSize: opt.value };
-                  setButtonForm(updated);
-                  await apiFetch(`/api/site/blocks/${block.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({ content: { ...heroContent, ...updated } }),
-                  });
-                }}
-                className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${
-                  buttonForm.electionFontSize === opt.value
-                    ? "bg-blue-600 text-white"
-                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div>
+            <label className={labelClass}>선거 D-Day</label>
+            <input
+              type="number"
+              min={8}
+              max={40}
+              className={inputClass}
+              value={buttonForm.electionFontSize}
+              onChange={(e) => updateBlockContent({ electionFontSize: Number(e.target.value) })}
+            />
           </div>
         </div>
       </div>

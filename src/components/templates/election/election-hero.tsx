@@ -10,8 +10,8 @@ interface Props {
   button1Link?: string;
   button2Text?: string;
   button2Link?: string;
-  badgeFontSize?: string;
-  electionFontSize?: string;
+  badgeFontSize?: number;
+  electionFontSize?: number;
 }
 
 function useDDay(dateStr: string | null) {
@@ -52,8 +52,8 @@ export default function ElectionHero({
   button1Link,
   button2Text,
   button2Link,
-  badgeFontSize = "text-xs",
-  electionFontSize = "text-xs",
+  badgeFontSize = 12,
+  electionFontSize = 12,
 }: Props) {
   const dDay = useDDay(settings.electionDate);
 
@@ -62,16 +62,16 @@ export default function ElectionHero({
     <div className="flex items-center justify-center gap-3 flex-wrap">
       {settings.partyName && (
         <span
-          className={`rounded-full bg-white/90 px-4 py-1.5 ${badgeFontSize} font-bold tracking-wide shadow-sm`}
-          style={{ color: "var(--primary)" }}
+          className="rounded-full bg-white/90 px-4 py-1.5 font-bold tracking-wide shadow-sm"
+          style={{ color: "var(--primary)", fontSize: `${badgeFontSize}px` }}
         >
           {settings.partyName}
         </span>
       )}
       {dDay !== null && settings.electionDate && (
         <span
-          className={`rounded-full px-4 py-1.5 ${electionFontSize} font-bold text-white tracking-wide shadow-sm`}
-          style={{ backgroundColor: "var(--primary)" }}
+          className="rounded-full px-4 py-1.5 font-bold text-white tracking-wide shadow-sm"
+          style={{ backgroundColor: "var(--primary)", fontSize: `${electionFontSize}px` }}
         >
           {settings.electionName ? `${settings.electionName} ` : ""}
           {formatDDay(dDay)}

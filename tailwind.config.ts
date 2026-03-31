@@ -1,9 +1,6 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  safelist: [
-    "text-[10px]", "text-xs", "text-sm", "text-base", "text-lg",
-  ],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
