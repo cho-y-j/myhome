@@ -2180,6 +2180,7 @@ function HeroEditor({
   block,
   settings: initialSettings,
   setSettings,
+  setBlocks,
   onSaving,
   onSaved,
   onCancel,
