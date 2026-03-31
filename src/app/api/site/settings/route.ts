@@ -55,26 +55,28 @@ export async function PUT(request: NextRequest) {
 
     const { profileImageUrl } = body;
 
+    // undefined 필드는 제외하여 기존 값 보존
+    const updateData: Record<string, unknown> = {};
+    if (ogTitle !== undefined) updateData.ogTitle = ogTitle;
+    if (ogDescription !== undefined) updateData.ogDescription = ogDescription;
+    if (ogImageUrl !== undefined) updateData.ogImageUrl = ogImageUrl;
+    if (heroImageUrl !== undefined) updateData.heroImageUrl = heroImageUrl;
+    if (profileImageUrl !== undefined) updateData.profileImageUrl = profileImageUrl;
+    if (heroSlogan !== undefined) updateData.heroSlogan = heroSlogan;
+    if (heroSubSlogan !== undefined) updateData.heroSubSlogan = heroSubSlogan;
+    if (partyName !== undefined) updateData.partyName = partyName;
+    if (positionTitle !== undefined) updateData.positionTitle = positionTitle;
+    if (subtitle !== undefined) updateData.subtitle = subtitle;
+    if (introText !== undefined) updateData.introText = introText;
+    if (primaryColor !== undefined) updateData.primaryColor = primaryColor;
+    if (accentColor !== undefined) updateData.accentColor = accentColor;
+    if (electionDate !== undefined) updateData.electionDate = electionDate ? new Date(electionDate) : null;
+    if (electionName !== undefined) updateData.electionName = electionName;
+    if (kakaoAppKey !== undefined) updateData.kakaoAppKey = kakaoAppKey;
+
     const settings = await prisma.siteSetting.upsert({
       where: { userId: user.id },
-      update: {
-        ogTitle,
-        ogDescription,
-        ogImageUrl,
-        heroImageUrl,
-        profileImageUrl,
-        heroSlogan,
-        heroSubSlogan,
-        partyName,
-        positionTitle,
-        subtitle,
-        introText,
-        primaryColor,
-        accentColor,
-        electionDate: electionDate ? new Date(electionDate) : undefined,
-        electionName,
-        kakaoAppKey,
-      },
+      update: updateData,
       create: {
         userId: user.id,
         ogTitle,
