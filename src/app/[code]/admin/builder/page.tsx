@@ -2810,69 +2810,93 @@ function GalleryEditor({
         </div>
       )}
 
-      <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-2">
+      <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-3">
         <p className="text-xs font-medium text-zinc-500">새 사진 추가</p>
+
+        {/* 이미지 업로드 — 선택하면 바로 업로드+추가 */}
         <input
           ref={galleryFileRef}
           type="file"
           accept="image/*"
+          multiple
           className="absolute w-0 h-0 opacity-0 overflow-hidden"
           disabled={galleryUploading}
           onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const previewUrl = URL.createObjectURL(file);
-            setGalleryPreviewUrl(previewUrl);
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
             setGalleryUploading(true);
-            const fd = new FormData();
-            fd.append("file", file);
-            const res = await fetch("/api/upload/image", { method: "POST", body: fd });
-            const json = await res.json();
-            setGalleryUploading(false);
-            if (json.success) {
-              setNewUrl(json.data.url);
+            for (const file of Array.from(files)) {
+              const fd = new FormData();
+              fd.append("file", file);
+              const uploadRes = await fetch("/api/upload/image", { method: "POST", body: fd });
+              const uploadJson = await uploadRes.json();
+              if (uploadJson.success) {
+                const addRes = await apiFetch<GalleryItem>("/api/site/gallery", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    url: uploadJson.data.url,
+                    altText: file.name.replace(/\.[^.]+$/, ""),
+                    category: newCat,
+                  }),
+                });
+                if (addRes.success && addRes.data) {
+                  setItems((prev) => [...prev, addRes.data!]);
+                }
+              }
             }
+            setGalleryUploading(false);
+            onSaved();
             e.target.value = "";
           }}
         />
         <button
           type="button"
-          className={`${btnSecondary} inline-flex items-center gap-1 w-full justify-center`}
+          className={`${btnPrimary} inline-flex items-center gap-2 w-full justify-center py-3`}
           disabled={galleryUploading}
           onClick={() => galleryFileRef.current?.click()}
         >
-          {galleryUploading ? "업로드 중..." : "📷 이미지 선택"}
+          {galleryUploading ? "업로드 중..." : "📷 사진 업로드 (여러 장 가능)"}
         </button>
-        {(galleryPreviewUrl || newUrl) && (
-          <div className="mt-1">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={galleryPreviewUrl || newUrl} alt="preview" className="h-16 w-full object-cover rounded" />
-          </div>
-        )}
-        <div className="flex gap-2">
-          <input
-            className={`${inputClass} flex-1`}
-            value={newAlt}
-            onChange={(e) => setNewAlt(e.target.value)}
-            placeholder="설명 (선택)"
-          />
+
+        {/* 카테고리 선택 */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-zinc-500">카테고리:</span>
           <select
-            className={`${inputClass} w-28`}
+            className={`${inputClass} flex-1`}
             value={newCat}
             onChange={(e) => setNewCat(e.target.value)}
           >
-            <option value="campaign">선거운동</option>
-            <option value="activity">의정활동</option>
-            <option value="local">지역활동</option>
+            <option value="activity">활동</option>
+            <option value="campaign">캠페인</option>
             <option value="event">행사</option>
-            <option value="media">언론보도</option>
+            <option value="media">언론</option>
+            <option value="blog">블로그</option>
           </select>
         </div>
-        <div className="flex justify-end">
-          <button onClick={addItem} className={btnPrimary}>
-            추가
-          </button>
-        </div>
+
+        {/* URL로도 추가 가능 */}
+        <details className="text-xs">
+          <summary className="text-zinc-500 cursor-pointer hover:text-zinc-300">URL로 추가하기</summary>
+          <div className="mt-2 space-y-2">
+            <input
+              className={inputClass}
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              placeholder="이미지 URL 또는 블로그 링크"
+            />
+            <div className="flex gap-2">
+              <input
+                className={`${inputClass} flex-1`}
+                value={newAlt}
+                onChange={(e) => setNewAlt(e.target.value)}
+                placeholder="설명 (선택)"
+              />
+              <button onClick={addItem} className={btnPrimary}>
+                추가
+              </button>
+            </div>
+          </div>
+        </details>
       </div>
 
       <EditorActions onSave={onCancel} onCancel={onCancel} />
