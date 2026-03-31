@@ -45,6 +45,14 @@ export async function PUT(request: NextRequest) {
       kakaoAppKey,
     } = body;
 
+    const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
+    if (primaryColor && !hexColorRegex.test(primaryColor)) {
+      return errorResponse("유효하지 않은 색상 코드입니다", 400);
+    }
+    if (accentColor && !hexColorRegex.test(accentColor)) {
+      return errorResponse("유효하지 않은 색상 코드입니다", 400);
+    }
+
     const settings = await prisma.siteSetting.upsert({
       where: { userId: user.id },
       update: {

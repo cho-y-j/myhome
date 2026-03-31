@@ -2,9 +2,17 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashPassword, createSession, setSessionCookie } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+    const rateLimit = checkRateLimit(`register:${ip}`, 3, 15 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return errorResponse("너무 많은 요청입니다. 잠시 후 다시 시도해주세요", 429);
+    }
+
     const body = await request.json();
     const { code, name, phone, password, templateType, positionTitle, partyName } = body;
 
@@ -54,7 +62,6 @@ export async function POST(request: NextRequest) {
     });
 
     // 자동 로그인
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const userAgent = request.headers.get("user-agent") || "";
     const sessionId = await createSession(user.id, "user", false, ip, userAgent);
     setSessionCookie(sessionId, false);

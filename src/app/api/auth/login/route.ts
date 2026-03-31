@@ -6,6 +6,7 @@ import {
   setSessionCookie,
 } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +20,11 @@ export async function POST(request: NextRequest) {
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown";
+
+    const rateLimit = checkRateLimit(`login:${ip}`, 5, 15 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return errorResponse("너무 많은 요청입니다. 잠시 후 다시 시도해주세요", 429);
+    }
     const userAgent = request.headers.get("user-agent") || "";
 
     if (userType === "super_admin") {

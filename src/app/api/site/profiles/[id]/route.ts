@@ -13,11 +13,11 @@ export async function PUT(
     const user = auth.user;
 
     const id = parseInt(params.id, 10);
-    if (isNaN(id)) return errorResponse("유효하지 않은 ID입니다");
+    if (isNaN(id) || id <= 0) return errorResponse("유효하지 않은 ID입니다", 400);
 
     const existing = await prisma.profile.findUnique({ where: { id } });
     if (!existing || existing.userId !== user.id) {
-      return errorResponse("프로필을 찾을 수 없습니다", 404);
+      return errorResponse("요청한 항목을 찾을 수 없습니다", 404);
     }
 
     const body = await request.json();
@@ -48,11 +48,11 @@ export async function DELETE(
     const user = auth.user;
 
     const id = parseInt(params.id, 10);
-    if (isNaN(id)) return errorResponse("유효하지 않은 ID입니다");
+    if (isNaN(id) || id <= 0) return errorResponse("유효하지 않은 ID입니다", 400);
 
     const existing = await prisma.profile.findUnique({ where: { id } });
     if (!existing || existing.userId !== user.id) {
-      return errorResponse("프로필을 찾을 수 없습니다", 404);
+      return errorResponse("요청한 항목을 찾을 수 없습니다", 404);
     }
 
     await prisma.profile.delete({ where: { id } });
