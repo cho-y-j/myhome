@@ -25,8 +25,8 @@ export async function processGalleryImage(buffer: Buffer): Promise<Buffer> {
  */
 export async function processOgImage(buffer: Buffer): Promise<Buffer> {
   return sharp(buffer)
-    .resize({ width: 1200, height: 630, fit: "cover" })
-    .webp({ quality: 85 })
+    .resize({ width: 1200, height: 630, fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 1 } })
+    .webp({ quality: 90 })
     .toBuffer();
 }
 
