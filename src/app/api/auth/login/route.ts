@@ -4,6 +4,8 @@ import {
   verifyPassword,
   createSession,
   setSessionCookie,
+  getSessionFromCookies,
+  deleteSession,
 } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -26,6 +28,12 @@ export async function POST(request: NextRequest) {
       return errorResponse("로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요", 429);
     }
     const userAgent = request.headers.get("user-agent") || "";
+
+    // 기존 세션 삭제 (다른 계정 세션이 남아있으면 충돌 방지)
+    const oldSession = getSessionFromCookies();
+    if (oldSession) {
+      await deleteSession(oldSession);
+    }
 
     if (userType === "super_admin") {
       const admin = await prisma.superAdmin.findUnique({
