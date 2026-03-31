@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     const rateLimit = checkRateLimit(`login:${ip}`, 5, 15 * 60 * 1000);
     if (!rateLimit.allowed) {
-      return errorResponse("너무 많은 요청입니다. 잠시 후 다시 시도해주세요", 429);
+      return errorResponse("로그인 시도 횟수를 초과했습니다. 15분 후 다시 시도해주세요 (0/5)", 429);
     }
     const userAgent = request.headers.get("user-agent") || "";
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         where: { username },
       });
       if (!admin || !(await verifyPassword(password, admin.passwordHash))) {
-        return errorResponse("아이디 또는 비밀번호가 올바르지 않습니다", 401);
+        return errorResponse(`아이디 또는 비밀번호가 올바르지 않습니다 (남은 시도: ${rateLimit.remaining}회)`, 401);
       }
 
       const sessionId = await createSession(
@@ -67,10 +67,10 @@ export async function POST(request: NextRequest) {
         where: { code: username },
       });
       if (!user || !user.isActive) {
-        return errorResponse("아이디 또는 비밀번호가 올바르지 않습니다", 401);
+        return errorResponse(`아이디 또는 비밀번호가 올바르지 않습니다 (남은 시도: ${rateLimit.remaining}회)`, 401);
       }
       if (!(await verifyPassword(password, user.passwordHash))) {
-        return errorResponse("아이디 또는 비밀번호가 올바르지 않습니다", 401);
+        return errorResponse(`아이디 또는 비밀번호가 올바르지 않습니다 (남은 시도: ${rateLimit.remaining}회)`, 401);
       }
 
       const sessionId = await createSession(
