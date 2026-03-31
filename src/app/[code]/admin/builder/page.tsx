@@ -2180,6 +2180,7 @@ function HeroEditor({
     button1Link?: string;
     button2Text?: string;
     button2Link?: string;
+    badgeFontSize?: string;
   } | null;
 
   const [form, setForm] = useState({
@@ -2208,6 +2209,7 @@ function HeroEditor({
     button1Link: heroContent?.button1Link || "#pledges",
     button2Text: heroContent?.button2Text || "후보 소개",
     button2Link: heroContent?.button2Link || "#about",
+    badgeFontSize: heroContent?.badgeFontSize || "text-xs",
   });
 
   // Update CSS custom properties in real-time when colors change
@@ -2240,6 +2242,7 @@ function HeroEditor({
           button1Link: buttonForm.button1Link,
           button2Text: buttonForm.button2Text,
           button2Link: buttonForm.button2Link,
+          badgeFontSize: buttonForm.badgeFontSize,
         },
       }),
     });
@@ -2375,6 +2378,33 @@ function HeroEditor({
           onChange={(e) => updateField("positionTitle", e.target.value)}
           placeholder="예: 제00대 국회의원 후보"
         />
+      </div>
+
+      {/* Badge font size */}
+      <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-2">
+        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">뱃지 글씨 크기</p>
+        <p className="text-[10px] text-zinc-600">당명, 선거 D-Day 뱃지</p>
+        <div className="flex gap-1.5">
+          {[
+            { value: "text-[10px]", label: "아주 작게" },
+            { value: "text-xs", label: "작게" },
+            { value: "text-sm", label: "보통" },
+            { value: "text-base", label: "크게" },
+            { value: "text-lg", label: "아주 크게" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setButtonForm({ ...buttonForm, badgeFontSize: opt.value })}
+              className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                buttonForm.badgeFontSize === opt.value
+                  ? "bg-blue-600 text-white"
+                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Button customization */}
