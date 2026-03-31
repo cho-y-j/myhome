@@ -37,6 +37,7 @@ export default function ElectionTemplate({ data }: Props) {
     button2Text: heroContent?.button2Text as string | undefined,
     button2Link: heroContent?.button2Link as string | undefined,
     badgeFontSize: (heroContent?.badgeFontSize as string) || "text-xs",
+    electionFontSize: (heroContent?.electionFontSize as string) || "text-xs",
   };
 
   // If blocks are defined and non-empty, render in block order

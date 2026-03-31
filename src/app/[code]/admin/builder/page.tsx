@@ -1000,15 +1000,19 @@ function HeroPreview({
     button1Link?: string;
     button2Text?: string;
     button2Link?: string;
+    badgeFontSize?: string;
+    electionFontSize?: string;
   } | null;
   const button1Text = heroContent?.button1Text || "공약 보기";
   const button2Text = heroContent?.button2Text || "후보 소개";
+  const partySize = heroContent?.badgeFontSize || "text-xs";
+  const electionSize = heroContent?.electionFontSize || "text-xs";
 
   const badges = (
     <div className="flex items-center justify-center gap-3 flex-wrap">
       {settings.partyName && (
         <span
-          className="rounded-full bg-white/90 px-4 py-1.5 text-xs font-bold tracking-wide shadow-sm"
+          className={`rounded-full bg-white/90 px-4 py-1.5 ${partySize} font-bold tracking-wide shadow-sm`}
           style={{ color: "var(--primary)" }}
         >
           {settings.partyName}
@@ -1016,7 +1020,7 @@ function HeroPreview({
       )}
       {dDay !== null && settings.electionDate && (
         <span
-          className="rounded-full px-4 py-1.5 text-xs font-bold text-white tracking-wide shadow-sm"
+          className={`rounded-full px-4 py-1.5 ${electionSize} font-bold text-white tracking-wide shadow-sm`}
           style={{ backgroundColor: "var(--primary)" }}
         >
           {settings.electionName ? `${settings.electionName} ` : ""}
@@ -2210,6 +2214,7 @@ function HeroEditor({
     button2Text: heroContent?.button2Text || "후보 소개",
     button2Link: heroContent?.button2Link || "#about",
     badgeFontSize: heroContent?.badgeFontSize || "text-xs",
+    electionFontSize: heroContent?.electionFontSize || "text-xs",
   });
 
   // Update CSS custom properties in real-time when colors change
@@ -2243,6 +2248,7 @@ function HeroEditor({
           button2Text: buttonForm.button2Text,
           button2Link: buttonForm.button2Link,
           badgeFontSize: buttonForm.badgeFontSize,
+          electionFontSize: buttonForm.electionFontSize,
         },
       }),
     });
@@ -2380,30 +2386,70 @@ function HeroEditor({
         />
       </div>
 
-      {/* Badge font size */}
-      <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-2">
-        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">뱃지 글씨 크기</p>
-        <p className="text-[10px] text-zinc-600">당명, 선거 D-Day 뱃지</p>
-        <div className="flex gap-1.5">
-          {[
-            { value: "text-[10px]", label: "아주 작게" },
-            { value: "text-xs", label: "작게" },
-            { value: "text-sm", label: "보통" },
-            { value: "text-base", label: "크게" },
-            { value: "text-lg", label: "아주 크게" },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setButtonForm({ ...buttonForm, badgeFontSize: opt.value })}
-              className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${
-                buttonForm.badgeFontSize === opt.value
-                  ? "bg-blue-600 text-white"
-                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      {/* Font size controls */}
+      <div className="rounded-lg border border-white/10 bg-zinc-800/30 p-3 space-y-3">
+        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">글씨 크기 조절</p>
+        <div>
+          <label className={labelClass}>당명</label>
+          <div className="flex gap-1">
+            {[
+              { value: "text-[10px]", label: "XS" },
+              { value: "text-xs", label: "S" },
+              { value: "text-sm", label: "M" },
+              { value: "text-base", label: "L" },
+              { value: "text-lg", label: "XL" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={async () => {
+                  const updated = { ...buttonForm, badgeFontSize: opt.value };
+                  setButtonForm(updated);
+                  await apiFetch(`/api/site/blocks/${block.id}`, {
+                    method: "PUT",
+                    body: JSON.stringify({ content: { ...heroContent, ...updated } }),
+                  });
+                }}
+                className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                  buttonForm.badgeFontSize === opt.value
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className={labelClass}>선거 D-Day</label>
+          <div className="flex gap-1">
+            {[
+              { value: "text-[10px]", label: "XS" },
+              { value: "text-xs", label: "S" },
+              { value: "text-sm", label: "M" },
+              { value: "text-base", label: "L" },
+              { value: "text-lg", label: "XL" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={async () => {
+                  const updated = { ...buttonForm, electionFontSize: opt.value };
+                  setButtonForm(updated);
+                  await apiFetch(`/api/site/blocks/${block.id}`, {
+                    method: "PUT",
+                    body: JSON.stringify({ content: { ...heroContent, ...updated } }),
+                  });
+                }}
+                className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                  buttonForm.electionFontSize === opt.value
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
