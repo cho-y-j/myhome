@@ -2028,7 +2028,14 @@ function SiteInfoPanel({
                 const json = await res.json();
                 setOgUploading(false);
                 if (json.success) {
-                  setForm((prev) => ({ ...prev, ogImageUrl: json.data.url }));
+                  const newUrl = json.data.url;
+                  setForm((prev) => ({ ...prev, ogImageUrl: newUrl }));
+                  // 자동 저장
+                  await apiFetch("/api/site/settings", {
+                    method: "PUT",
+                    body: JSON.stringify({ ogImageUrl: newUrl }),
+                  });
+                  setSettings((prev) => ({ ...prev, ogImageUrl: newUrl }));
                 }
                 e.target.value = "";
               }}
@@ -2047,9 +2054,14 @@ function SiteInfoPanel({
                 <img src={ogPreviewUrl || form.ogImageUrl} alt="OG preview" className="h-28 w-full object-cover rounded-lg" />
                 <button
                   className="absolute top-1 right-1 rounded-full bg-red-500/80 p-0.5 text-white"
-                  onClick={() => {
+                  onClick={async () => {
                     setForm((prev) => ({ ...prev, ogImageUrl: "" }));
                     setOgPreviewUrl(null);
+                    await apiFetch("/api/site/settings", {
+                      method: "PUT",
+                      body: JSON.stringify({ ogImageUrl: "" }),
+                    });
+                    setSettings((prev) => ({ ...prev, ogImageUrl: "" }));
                   }}
                 >
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
