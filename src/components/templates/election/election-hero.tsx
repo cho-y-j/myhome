@@ -57,7 +57,22 @@ export default function ElectionHero({
 }: Props) {
   const dDay = useDDay(settings.electionDate);
 
-  /* ── Badges (당명 + 선거 D-day) ── */
+  function copyLink() {
+    try {
+      navigator.clipboard.writeText(window.location.href);
+      alert("링크가 복사되었습니다!");
+    } catch {
+      const input = document.createElement("input");
+      input.value = window.location.href;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      alert("링크가 복사되었습니다!");
+    }
+  }
+
+  /* ── Badges (당명 + 선거 D-day + 링크복사) ── */
   const badges = (
     <div className="flex items-center justify-center gap-3 flex-wrap">
       {settings.partyName && (
@@ -77,6 +92,15 @@ export default function ElectionHero({
           {formatDDay(dDay)}
         </span>
       )}
+      <button
+        onClick={copyLink}
+        className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 flex items-center gap-1"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+        링크 복사
+      </button>
     </div>
   );
 

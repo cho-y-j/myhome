@@ -2,7 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-const NAV_ITEMS = [
+// Map block types to section DOM IDs
+const BLOCK_TYPE_TO_SECTION_ID: Record<string, string> = {
+  hero: "hero",
+  intro: "about",
+  career: "about",
+  goals: "pledges",
+  gallery: "gallery",
+  schedule: "schedule",
+  news: "news",
+  videos: "video",
+  contacts: "contact",
+};
+
+const ALL_NAV_ITEMS = [
   {
     id: "hero",
     label: "홈",
@@ -59,11 +72,29 @@ const NAV_ITEMS = [
   },
 ];
 
-export default function ElectionNav() {
+interface Props {
+  blocks?: Array<{ type: string; [key: string]: unknown }>;
+}
+
+export default function ElectionNav({ blocks }: Props) {
   const [activeId, setActiveId] = useState("hero");
 
+  // Filter nav items based on visible blocks
+  const navItems = (() => {
+    if (!blocks || blocks.length === 0) return ALL_NAV_ITEMS;
+
+    // Build set of section IDs from blocks (public data only includes visible blocks)
+    const visibleSectionIds = new Set<string>();
+    for (const block of blocks) {
+      const sectionId = BLOCK_TYPE_TO_SECTION_ID[block.type];
+      if (sectionId) visibleSectionIds.add(sectionId);
+    }
+
+    return ALL_NAV_ITEMS.filter((item) => visibleSectionIds.has(item.id));
+  })();
+
   useEffect(() => {
-    const sectionIds = NAV_ITEMS.map((item) => item.id);
+    const sectionIds = navItems.map((item) => item.id);
     const observers: IntersectionObserver[] = [];
 
     sectionIds.forEach((id) => {
@@ -88,12 +119,12 @@ export default function ElectionNav() {
     return () => {
       observers.forEach((obs) => obs.disconnect());
     };
-  }, []);
+  }, [navItems]);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t-2 border-gray-200 safe-area-inset-bottom">
       <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-2">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = activeId === item.id;
           return (
             <a

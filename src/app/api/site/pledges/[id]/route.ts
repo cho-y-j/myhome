@@ -21,7 +21,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { icon, title, description, details } = body;
+    const { icon, title, description, details, sortOrder } = body;
 
     const pledge = await prisma.pledge.update({
       where: { id },
@@ -30,6 +30,7 @@ export async function PUT(
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(details !== undefined && { details }),
+        ...(sortOrder !== undefined && { sortOrder }),
       },
     });
 

@@ -97,7 +97,7 @@ async function getSiteData(code: string): Promise<SiteData | null> {
       icon: p.icon,
       title: p.title,
       description: p.description,
-      details: (p.details as string[]) ?? [],
+      details: (p.details as string[] | { items: string[]; imageUrl?: string }) ?? [],
       sortOrder: p.sortOrder,
     })),
     gallery: gallery.map((g) => ({

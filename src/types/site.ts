@@ -30,7 +30,7 @@ export interface SiteData {
     icon: string;
     title: string;
     description: string | null;
-    details: string[];
+    details: string[] | { items: string[]; imageUrl?: string };
     sortOrder: number;
   }>;
   gallery: Array<{
@@ -62,6 +62,7 @@ export interface SiteData {
     url: string | null;
     imageUrl: string | null;
     publishedDate: string | null;
+    sortOrder: number;
   }>;
   videos: Array<{
     id: number;

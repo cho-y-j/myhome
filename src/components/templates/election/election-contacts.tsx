@@ -8,6 +8,17 @@ interface Props {
   sectionTitle?: string;
 }
 
+const CONTACT_COLORS: Record<string, string> = {
+  phone: "#4CAF50",
+  email: "#F44336",
+  instagram: "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
+  facebook: "#1877F2",
+  youtube: "#FF0000",
+  blog: "#03C75A",
+  threads: "#000000",
+  kakaotalk: "#FEE500",
+};
+
 const CONTACT_META: Record<
   string,
   { icon: React.ReactNode; label: string; hrefPrefix?: string }
@@ -113,7 +124,10 @@ export default function ElectionContacts({ contacts, kakaoAppKey, sectionTitle }
             <div className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200 group">
               <div
                 className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-white"
-                style={{ backgroundColor: "var(--primary)" }}
+                style={{
+                  background: CONTACT_COLORS[contact.type] || "var(--primary)",
+                  color: contact.type === "kakaotalk" ? "#3C1E1E" : "white",
+                }}
               >
                 {meta?.icon ?? (
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

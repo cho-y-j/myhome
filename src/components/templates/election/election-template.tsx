@@ -84,7 +84,7 @@ export default function ElectionTemplate({ data }: Props) {
 
         <ElectionFooter settings={settings} candidateName={user.name} />
 
-        <ElectionNav />
+        <ElectionNav blocks={blocks} />
 
         <TrackingScript code={user.code} />
       </div>
@@ -151,13 +151,18 @@ export default function ElectionTemplate({ data }: Props) {
         sectionTitle={blockTitle("gallery")}
       />
     ),
-    schedule: () => (
-      <ElectionSchedule
-        key="schedule"
-        schedules={data.schedules}
-        sectionTitle={blockTitle("schedule")}
-      />
-    ),
+    schedule: () => {
+      const schedContent = blockContent("schedule");
+      const schedColors = (schedContent?.colors as Record<string, string>) || {};
+      return (
+        <ElectionSchedule
+          key="schedule"
+          schedules={data.schedules}
+          sectionTitle={blockTitle("schedule")}
+          colors={schedColors}
+        />
+      );
+    },
     news: () => (
       <ElectionNews
         key="news"
@@ -200,7 +205,7 @@ export default function ElectionTemplate({ data }: Props) {
 
       <ElectionFooter settings={settings} candidateName={user.name} />
 
-      <ElectionNav />
+      <ElectionNav blocks={blocks} />
 
       <TrackingScript code={user.code} />
     </div>

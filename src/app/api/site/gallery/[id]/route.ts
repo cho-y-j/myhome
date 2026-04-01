@@ -21,7 +21,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { url, altText, category } = body;
+    const { url, altText, category, sortOrder } = body;
 
     const item = await prisma.gallery.update({
       where: { id },
@@ -29,6 +29,7 @@ export async function PUT(
         ...(url !== undefined && { url }),
         ...(altText !== undefined && { altText }),
         ...(category !== undefined && { category }),
+        ...(sortOrder !== undefined && { sortOrder }),
       },
     });
 

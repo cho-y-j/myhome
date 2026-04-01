@@ -10,10 +10,12 @@ interface Props {
 
 export default function ElectionVideos({ videos, sectionTitle }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   if (videos.length === 0) return null;
 
   const sorted = [...videos].sort((a, b) => a.sortOrder - b.sortOrder);
+  const visible = showAll ? sorted : sorted.slice(0, 4);
 
   return (
     <section id="video" className="bg-gray-50 py-16 sm:py-20">
@@ -26,7 +28,7 @@ export default function ElectionVideos({ videos, sectionTitle }: Props) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {sorted.map((video) => (
+          {visible.map((video) => (
             <div key={video.id} className="overflow-hidden rounded-2xl bg-white shadow-sm">
               {activeId === video.videoId ? (
                 <div className="relative aspect-video">
@@ -71,17 +73,43 @@ export default function ElectionVideos({ videos, sectionTitle }: Props) {
                 </button>
               )}
 
-              {/* Title below thumbnail */}
-              {video.title && (
-                <div className="p-4">
+              {/* Title + YouTube link below thumbnail */}
+              <div className="p-4">
+                {video.title && (
                   <p className="font-semibold text-gray-900 line-clamp-2">
                     {video.title}
                   </p>
-                </div>
-              )}
+                )}
+                <a
+                  href={`https://www.youtube.com/watch?v=${video.videoId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                  </svg>
+                  유튜브에서 보기
+                </a>
+              </div>
             </div>
           ))}
         </div>
+
+        {/* Show more button */}
+        {sorted.length > 4 && !showAll && (
+          <div className="mt-8 text-center">
+            <button
+              onClick={() => setShowAll(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-6 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:shadow-md hover:border-gray-300"
+            >
+              더보기
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

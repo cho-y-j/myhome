@@ -8,6 +8,16 @@ interface Props {
   sectionTitle?: string;
 }
 
+// Parse details: supports old string[] format and new { items, imageUrl } format
+function parseDetails(details: unknown): { items: string[]; imageUrl: string | null } {
+  if (Array.isArray(details)) return { items: details, imageUrl: null };
+  if (details && typeof details === "object" && "items" in (details as Record<string, unknown>)) {
+    const d = details as { items: string[]; imageUrl?: string };
+    return { items: d.items || [], imageUrl: d.imageUrl || null };
+  }
+  return { items: [], imageUrl: null };
+}
+
 function PledgeCard({
   pledge,
   index,
@@ -16,7 +26,8 @@ function PledgeCard({
   index: number;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const hasDetails = pledge.details.length > 0;
+  const parsed = parseDetails(pledge.details);
+  const hasDetails = parsed.items.length > 0;
   const number = String(index + 1).padStart(2, "0");
 
   return (
@@ -46,6 +57,19 @@ function PledgeCard({
             </p>
           )}
 
+          {/* Pledge image */}
+          {parsed.imageUrl && (
+            <div className="mt-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={parsed.imageUrl}
+                alt={pledge.title}
+                className="w-full max-h-64 rounded-xl object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+
           {/* Expandable details */}
           {hasDetails && (
             <>
@@ -72,7 +96,7 @@ function PledgeCard({
 
               {expanded && (
                 <ul className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                  {pledge.details.map((detail, i) => (
+                  {parsed.items.map((detail, i) => (
                     <li
                       key={i}
                       className="flex items-start gap-2 text-sm text-gray-600"

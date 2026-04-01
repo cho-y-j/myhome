@@ -27,7 +27,7 @@ interface PledgeItem {
   icon: string;
   title: string;
   description: string | null;
-  details: string[];
+  details: string[] | { items: string[]; imageUrl?: string };
   sortOrder?: number;
 }
 
@@ -54,6 +54,7 @@ interface NewsItem {
   url: string | null;
   imageUrl?: string | null;
   publishedDate: string | null;
+  sortOrder?: number;
 }
 
 interface VideoItem {
@@ -1851,9 +1852,39 @@ function SectionEditor({
   onCancel: () => void;
   setBlocks: React.Dispatch<React.SetStateAction<Block[]>>;
 }) {
+  async function handleToggleVisibility() {
+    const res = await apiFetch<Block>(`/api/site/blocks/${block.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ visible: !block.visible }),
+    });
+    if (res.success && res.data) {
+      setBlocks((prev) =>
+        prev.map((b) => (b.id === res.data!.id ? res.data! : b))
+      );
+    }
+  }
+
+  const visibilityToggle = (
+    <div className="mb-3 flex items-center justify-between rounded-lg border border-white/10 bg-zinc-800/50 px-3 py-2">
+      <span className="text-xs text-zinc-400">섹션 표시</span>
+      <button
+        onClick={handleToggleVisibility}
+        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+          block.visible
+            ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+            : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+        }`}
+      >
+        {block.visible ? "활성화" : "비활성화"}
+      </button>
+    </div>
+  );
+
+  let editor: React.ReactNode = null;
+
   switch (block.type) {
     case "hero":
-      return (
+      editor = (
         <HeroEditor
           block={block}
           settings={settings}
@@ -1864,8 +1895,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "intro":
-      return (
+      editor = (
         <IntroEditor
           block={block}
           settings={settings}
@@ -1875,8 +1907,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "career":
-      return (
+      editor = (
         <CareerEditor
           block={block}
           items={profiles}
@@ -1885,8 +1918,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "goals":
-      return (
+      editor = (
         <GoalsEditor
           block={block}
           items={pledges}
@@ -1895,8 +1929,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "gallery":
-      return (
+      editor = (
         <GalleryEditor
           block={block}
           items={gallery}
@@ -1905,8 +1940,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "schedule":
-      return (
+      editor = (
         <ScheduleEditor
           block={block}
           items={schedules}
@@ -1915,8 +1951,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "news":
-      return (
+      editor = (
         <NewsEditor
           block={block}
           items={news}
@@ -1925,8 +1962,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "videos":
-      return (
+      editor = (
         <VideosEditor
           block={block}
           items={videos}
@@ -1935,8 +1973,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "contacts":
-      return (
+      editor = (
         <ContactsEditor
           block={block}
           items={contacts}
@@ -1945,8 +1984,9 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     case "links":
-      return (
+      editor = (
         <LinksEditor
           block={block}
           onSaving={onSaving}
@@ -1954,11 +1994,19 @@ function SectionEditor({
           onCancel={onCancel}
         />
       );
+      break;
     default:
-      return (
+      editor = (
         <p className="text-sm text-zinc-500">알 수 없는 블록 유형입니다.</p>
       );
   }
+
+  return (
+    <div>
+      {visibilityToggle}
+      {editor}
+    </div>
+  );
 }
 
 /* ═══════════════════════════════════════════════
@@ -2769,9 +2817,31 @@ function GoalsEditor({
   onSaved,
   onCancel,
 }: EditorBaseProps & { items: PledgeItem[] }) {
-  const [items, setItems] = useState<PledgeItem[]>(initialItems);
+  const [items, setItems] = useState<PledgeItem[]>(
+    [...initialItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  );
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "", details: "" as string, imageUrl: "" });
+  const pledgeFileRef = useRef<HTMLInputElement>(null);
+  const [pledgeUploading, setPledgeUploading] = useState(false);
+
+  // Helper to parse details (supports old string[] and new {items, imageUrl} format)
+  function parseDetails(details: unknown): { items: string[]; imageUrl: string | null } {
+    if (Array.isArray(details)) return { items: details, imageUrl: null };
+    if (details && typeof details === "object" && "items" in (details as Record<string, unknown>)) {
+      const d = details as { items: string[]; imageUrl?: string };
+      return { items: d.items || [], imageUrl: d.imageUrl || null };
+    }
+    return { items: [], imageUrl: null };
+  }
+
+  // Helper to build details for API
+  function buildDetails(itemsList: string[], imageUrl: string | null): unknown {
+    if (imageUrl) return { items: itemsList, imageUrl };
+    return itemsList;
+  }
 
   async function addItem() {
     if (!newTitle.trim()) return;
@@ -2800,38 +2870,224 @@ function GoalsEditor({
     onSaved();
   }
 
+  async function swapOrder(idx: number, direction: "up" | "down") {
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+    const newItems = [...items];
+    [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
+    setItems(newItems);
+    // Persist reorder
+    const ids = newItems.map((i) => i.id!);
+    await apiFetch("/api/site/pledges/reorder", {
+      method: "PUT",
+      body: JSON.stringify({ ids }),
+    });
+    onSaved();
+  }
+
+  function startEdit(item: PledgeItem) {
+    const parsed = parseDetails(item.details);
+    setEditingId(item.id!);
+    setEditForm({
+      title: item.title,
+      description: item.description || "",
+      details: parsed.items.join("\n"),
+      imageUrl: parsed.imageUrl || "",
+    });
+    // Scroll preview to pledges section
+    const previewFrame = document.querySelector("[data-preview-frame]");
+    if (previewFrame) {
+      const pledgeEl = previewFrame.querySelector("#pledges");
+      pledgeEl?.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    onSaving();
+    const detailItems = editForm.details.split("\n").map((s) => s.trim()).filter(Boolean);
+    const details = buildDetails(detailItems, editForm.imageUrl || null);
+    const res = await apiFetch<PledgeItem>(`/api/site/pledges/${editingId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        title: editForm.title,
+        description: editForm.description || null,
+        details,
+      }),
+    });
+    if (res.success && res.data) {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? res.data! : i)));
+    }
+    setEditingId(null);
+    onSaved();
+  }
+
+  async function handlePledgeImageUpload(file: File) {
+    setPledgeUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const uploadRes = await fetch("/api/upload/image", { method: "POST", body: fd });
+    const uploadJson = await uploadRes.json();
+    if (uploadJson.success) {
+      setEditForm((prev) => ({ ...prev, imageUrl: uploadJson.data.url }));
+    }
+    setPledgeUploading(false);
+  }
+
   return (
     <div className="space-y-3">
+      {/* Hidden file input for pledge image */}
+      <input
+        ref={pledgeFileRef}
+        type="file"
+        accept="image/*"
+        className="absolute w-0 h-0 opacity-0 overflow-hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handlePledgeImageUpload(file);
+          e.target.value = "";
+        }}
+      />
+
       {items.length > 0 && (
-        <div className="space-y-1.5 max-h-60 overflow-y-auto">
-          {items.map((item, idx) => (
-            <div
-              key={item.id || idx}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
-            >
-              <span className="text-zinc-500 text-xs font-bold">
-                {String(idx + 1).padStart(2, "0")}
-              </span>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm text-zinc-200 truncate block">
-                  {item.title}
-                </span>
-                {item.description && (
-                  <span className="text-xs text-zinc-500 truncate block">
-                    {item.description}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => item.id && removeItem(item.id)}
-                className="text-zinc-600 hover:text-red-400 transition-colors"
+        <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+          {items.map((item, idx) => {
+            const parsed = parseDetails(item.details);
+            const isEditing = editingId === item.id;
+
+            if (isEditing) {
+              return (
+                <div
+                  key={item.id || idx}
+                  className="rounded-lg border border-blue-500/30 bg-zinc-800/80 p-3 space-y-2"
+                >
+                  <p className="text-xs font-medium text-blue-400">공약 수정</p>
+                  <input
+                    className={inputClass}
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    placeholder="공약 제목"
+                  />
+                  <input
+                    className={inputClass}
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    placeholder="공약 설명 (선택)"
+                  />
+                  <textarea
+                    className={`${inputClass} min-h-[60px] resize-y`}
+                    value={editForm.details}
+                    onChange={(e) => setEditForm({ ...editForm, details: e.target.value })}
+                    placeholder="세부 공약 (줄바꿈으로 구분)"
+                    rows={3}
+                  />
+                  {/* Image section */}
+                  <div className="space-y-1">
+                    <label className={labelClass}>공약 이미지</label>
+                    {editForm.imageUrl && (
+                      <div className="relative inline-block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={editForm.imageUrl} alt="" className="h-20 w-auto rounded-lg object-cover" />
+                        <button
+                          onClick={() => setEditForm({ ...editForm, imageUrl: "" })}
+                          className="absolute -top-1 -right-1 rounded-full bg-red-500 p-0.5 text-white"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className={`${btnSecondary} text-xs`}
+                      disabled={pledgeUploading}
+                      onClick={() => pledgeFileRef.current?.click()}
+                    >
+                      {pledgeUploading ? "업로드 중..." : editForm.imageUrl ? "이미지 변경" : "이미지 추가"}
+                    </button>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditingId(null)} className={btnSecondary}>
+                      취소
+                    </button>
+                    <button onClick={saveEdit} className={btnPrimary}>
+                      저장
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={item.id || idx}
+                className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+                {/* Reorder buttons */}
+                <div className="flex flex-col gap-0.5">
+                  <button
+                    onClick={() => swapOrder(idx, "up")}
+                    disabled={idx === 0}
+                    className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 transition-colors"
+                    title="위로"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => swapOrder(idx, "down")}
+                    disabled={idx === items.length - 1}
+                    className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 transition-colors"
+                    title="아래로"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+
+                <span className="text-zinc-500 text-xs font-bold">
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
+                {parsed.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={parsed.imageUrl} alt="" className="h-8 w-8 rounded object-cover flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-zinc-200 truncate block">
+                    {item.title}
+                  </span>
+                  {item.description && (
+                    <span className="text-xs text-zinc-500 truncate block">
+                      {item.description}
+                    </span>
+                  )}
+                </div>
+                {/* Edit button */}
+                <button
+                  onClick={() => startEdit(item)}
+                  className="text-zinc-600 hover:text-blue-400 transition-colors"
+                  title="수정"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                {/* Delete button */}
+                <button
+                  onClick={() => item.id && removeItem(item.id)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors"
+                  title="삭제"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -2871,13 +3127,17 @@ function GalleryEditor({
   onSaved,
   onCancel,
 }: EditorBaseProps & { items: GalleryItem[] }) {
-  const [items, setItems] = useState<GalleryItem[]>(initialItems);
+  const [items, setItems] = useState<GalleryItem[]>(
+    [...initialItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  );
   const [newUrl, setNewUrl] = useState("");
   const [newAlt, setNewAlt] = useState("");
   const [newCat, setNewCat] = useState("campaign");
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryPreviewUrl, setGalleryPreviewUrl] = useState<string | null>(null);
   const galleryFileRef = useRef<HTMLInputElement>(null);
+  const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
+  const [galleryEditForm, setGalleryEditForm] = useState({ altText: "", category: "" });
 
   async function addItem() {
     if (!newUrl.trim()) return;
@@ -2891,7 +3151,14 @@ function GalleryEditor({
       }),
     });
     if (res.success && res.data) {
-      setItems((prev) => [...prev, res.data!]);
+      // New uploads appear at the top (sortOrder = 0, shift others)
+      setItems((prev) => [res.data!, ...prev]);
+      // Reorder to persist: new item first, then the rest
+      const newIds = [res.data!.id!, ...items.map((i) => i.id!)];
+      await apiFetch("/api/site/gallery/reorder", {
+        method: "PUT",
+        body: JSON.stringify({ ids: newIds }),
+      });
       setNewUrl("");
       setNewAlt("");
     }
@@ -2905,11 +3172,47 @@ function GalleryEditor({
     onSaved();
   }
 
+  async function swapGalleryOrder(idx: number, direction: "up" | "down") {
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+    const newItems = [...items];
+    [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
+    setItems(newItems);
+    const ids = newItems.map((i) => i.id!);
+    await apiFetch("/api/site/gallery/reorder", {
+      method: "PUT",
+      body: JSON.stringify({ ids }),
+    });
+    onSaved();
+  }
+
+  function startGalleryEdit(item: GalleryItem) {
+    setEditingGalleryId(item.id!);
+    setGalleryEditForm({ altText: item.altText || "", category: item.category });
+  }
+
+  async function saveGalleryEdit() {
+    if (!editingGalleryId) return;
+    onSaving();
+    const res = await apiFetch<GalleryItem>(`/api/site/gallery/${editingGalleryId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        altText: galleryEditForm.altText || null,
+        category: galleryEditForm.category,
+      }),
+    });
+    if (res.success && res.data) {
+      setItems((prev) => prev.map((i) => (i.id === editingGalleryId ? res.data! : i)));
+    }
+    setEditingGalleryId(null);
+    onSaved();
+  }
+
   return (
     <div className="space-y-3">
       {items.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
-          {items.map((item) => (
+        <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
+          {items.map((item, idx) => (
             <div key={item.id} className="relative group">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -2917,16 +3220,89 @@ function GalleryEditor({
                 alt={item.altText || ""}
                 className="aspect-square w-full rounded-lg object-cover"
               />
-              <button
-                onClick={() => item.id && removeItem(item.id)}
-                className="absolute top-1 right-1 rounded-full bg-red-500/80 p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              {/* Overlay controls */}
+              <div className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                {/* Move up */}
+                <button
+                  onClick={() => swapGalleryOrder(idx, "up")}
+                  disabled={idx === 0}
+                  className="rounded-full bg-white/20 p-1 text-white hover:bg-white/40 disabled:opacity-30 transition-colors"
+                  title="앞으로"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                {/* Edit */}
+                <button
+                  onClick={() => startGalleryEdit(item)}
+                  className="rounded-full bg-white/20 p-1 text-white hover:bg-blue-500/60 transition-colors"
+                  title="수정"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                {/* Move down */}
+                <button
+                  onClick={() => swapGalleryOrder(idx, "down")}
+                  disabled={idx === items.length - 1}
+                  className="rounded-full bg-white/20 p-1 text-white hover:bg-white/40 disabled:opacity-30 transition-colors"
+                  title="뒤로"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                {/* Delete */}
+                <button
+                  onClick={() => item.id && removeItem(item.id)}
+                  className="rounded-full bg-red-500/60 p-1 text-white hover:bg-red-500/80 transition-colors"
+                  title="삭제"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Category badge */}
+              <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white/80">
+                {item.category}
+              </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Gallery edit form (inline) */}
+      {editingGalleryId && (
+        <div className="rounded-lg border border-blue-500/30 bg-zinc-800/80 p-3 space-y-2">
+          <p className="text-xs font-medium text-blue-400">사진 정보 수정</p>
+          <input
+            className={inputClass}
+            value={galleryEditForm.altText}
+            onChange={(e) => setGalleryEditForm({ ...galleryEditForm, altText: e.target.value })}
+            placeholder="사진 설명"
+          />
+          <select
+            className={inputClass}
+            value={galleryEditForm.category}
+            onChange={(e) => setGalleryEditForm({ ...galleryEditForm, category: e.target.value })}
+          >
+            <option value="activity">활동</option>
+            <option value="campaign">캠페인</option>
+            <option value="event">행사</option>
+            <option value="media">언론</option>
+            <option value="blog">블로그</option>
+          </select>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditingGalleryId(null)} className={btnSecondary}>
+              취소
+            </button>
+            <button onClick={saveGalleryEdit} className={btnPrimary}>
+              저장
+            </button>
+          </div>
         </div>
       )}
 
@@ -2945,6 +3321,8 @@ function GalleryEditor({
             const files = e.target.files;
             if (!files || files.length === 0) return;
             setGalleryUploading(true);
+            onSaving();
+            const newlyAdded: GalleryItem[] = [];
             for (const file of Array.from(files)) {
               const fd = new FormData();
               fd.append("file", file);
@@ -2960,9 +3338,19 @@ function GalleryEditor({
                   }),
                 });
                 if (addRes.success && addRes.data) {
-                  setItems((prev) => [...prev, addRes.data!]);
+                  newlyAdded.push(addRes.data!);
                 }
               }
+            }
+            // New uploads at the top
+            if (newlyAdded.length > 0) {
+              const updated = [...newlyAdded, ...items];
+              setItems(updated);
+              const ids = updated.map((i) => i.id!);
+              await apiFetch("/api/site/gallery/reorder", {
+                method: "PUT",
+                body: JSON.stringify({ ids }),
+              });
             }
             setGalleryUploading(false);
             onSaved();
@@ -2975,7 +3363,7 @@ function GalleryEditor({
           disabled={galleryUploading}
           onClick={() => galleryFileRef.current?.click()}
         >
-          {galleryUploading ? "업로드 중..." : "📷 사진 업로드 (여러 장 가능)"}
+          {galleryUploading ? "업로드 중..." : "사진 업로드 (여러 장 가능)"}
         </button>
 
         {/* 카테고리 선택 */}
@@ -3027,6 +3415,17 @@ function GalleryEditor({
 /* ═══════════════════════════════════════════════
    Schedule Editor
    ═══════════════════════════════════════════════ */
+const SCHEDULE_COLORS = [
+  { label: "기본", value: "" },
+  { label: "빨강", value: "#ef4444" },
+  { label: "주황", value: "#f97316" },
+  { label: "노랑", value: "#eab308" },
+  { label: "초록", value: "#22c55e" },
+  { label: "파랑", value: "#3b82f6" },
+  { label: "보라", value: "#8b5cf6" },
+  { label: "분홍", value: "#ec4899" },
+];
+
 function ScheduleEditor({
   block,
   items: initialItems,
@@ -3040,7 +3439,23 @@ function ScheduleEditor({
     date: "",
     time: "",
     location: "",
+    color: "",
   });
+
+  // Store schedule colors in block content: { colors: { [id]: "#hex" } }
+  const blockContent = (block.content || {}) as Record<string, unknown>;
+  const [scheduleColors, setScheduleColors] = useState<Record<string, string>>(
+    (blockContent.colors as Record<string, string>) || {}
+  );
+
+  async function saveColorsToBlock(colors: Record<string, string>) {
+    await apiFetch(`/api/site/blocks/${block.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        content: { ...blockContent, colors },
+      }),
+    });
+  }
 
   async function addItem() {
     if (!form.title.trim() || !form.date) return;
@@ -3056,7 +3471,13 @@ function ScheduleEditor({
     });
     if (res.success && res.data) {
       setItems((prev) => [...prev, res.data!]);
-      setForm({ title: "", date: "", time: "", location: "" });
+      // Save color if selected
+      if (form.color && res.data.id) {
+        const newColors = { ...scheduleColors, [String(res.data.id)]: form.color };
+        setScheduleColors(newColors);
+        await saveColorsToBlock(newColors);
+      }
+      setForm({ title: "", date: "", time: "", location: "", color: "" });
     }
     onSaved();
   }
@@ -3065,6 +3486,23 @@ function ScheduleEditor({
     onSaving();
     await apiFetch(`/api/site/schedules/${id}`, { method: "DELETE" });
     setItems((prev) => prev.filter((i) => i.id !== id));
+    // Remove color entry
+    const newColors = { ...scheduleColors };
+    delete newColors[String(id)];
+    setScheduleColors(newColors);
+    await saveColorsToBlock(newColors);
+    onSaved();
+  }
+
+  async function updateColor(id: number, color: string) {
+    const newColors = { ...scheduleColors };
+    if (color) {
+      newColors[String(id)] = color;
+    } else {
+      delete newColors[String(id)];
+    }
+    setScheduleColors(newColors);
+    await saveColorsToBlock(newColors);
     onSaved();
   }
 
@@ -3072,30 +3510,50 @@ function ScheduleEditor({
     <div className="space-y-3">
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
-            >
-              <span className="text-xs text-zinc-500">{item.date}</span>
-              <span className="flex-1 text-sm text-zinc-200 truncate">
-                {item.title}
-              </span>
-              {item.location && (
-                <span className="text-xs text-zinc-500 truncate max-w-[100px]">
-                  {item.location}
-                </span>
-              )}
-              <button
-                onClick={() => item.id && removeItem(item.id)}
-                className="text-zinc-600 hover:text-red-400 transition-colors"
+          {items.map((item) => {
+            const itemColor = scheduleColors[String(item.id)] || "";
+            return (
+              <div
+                key={item.id}
+                className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+                {/* Color indicator */}
+                <div
+                  className="h-3 w-3 rounded-full flex-shrink-0 border border-white/10"
+                  style={{ backgroundColor: itemColor || "#71717a" }}
+                />
+                <span className="text-xs text-zinc-500">{item.date}</span>
+                <span className="flex-1 text-sm text-zinc-200 truncate">
+                  {item.title}
+                </span>
+                {item.location && (
+                  <span className="text-xs text-zinc-500 truncate max-w-[80px]">
+                    {item.location}
+                  </span>
+                )}
+                {/* Color picker dropdown */}
+                <select
+                  className="bg-zinc-700 text-xs text-zinc-300 rounded px-1 py-0.5 border border-white/10 w-14"
+                  value={itemColor}
+                  onChange={(e) => item.id && updateColor(item.id, e.target.value)}
+                >
+                  {SCHEDULE_COLORS.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => item.id && removeItem(item.id)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -3127,6 +3585,24 @@ function ScheduleEditor({
           onChange={(e) => setForm({ ...form, location: e.target.value })}
           placeholder="장소 (선택)"
         />
+        {/* Color selection */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-zinc-500">색상:</span>
+          <div className="flex gap-1.5">
+            {SCHEDULE_COLORS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setForm({ ...form, color: c.value })}
+                className={`h-5 w-5 rounded-full border-2 transition-all ${
+                  form.color === c.value ? "border-white scale-110" : "border-white/20"
+                }`}
+                style={{ backgroundColor: c.value || "#71717a" }}
+                title={c.label}
+              />
+            ))}
+          </div>
+        </div>
         <div className="flex justify-end">
           <button onClick={addItem} className={btnPrimary}>
             추가
@@ -3149,7 +3625,9 @@ function NewsEditor({
   onSaved,
   onCancel,
 }: EditorBaseProps & { items: NewsItem[] }) {
-  const [items, setItems] = useState<NewsItem[]>(initialItems);
+  const [items, setItems] = useState<NewsItem[]>(
+    [...initialItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  );
   const [form, setForm] = useState({
     title: "",
     source: "",
@@ -3160,6 +3638,8 @@ function NewsEditor({
   async function addItem() {
     if (!form.title.trim()) return;
     onSaving();
+    // New items get sortOrder 0 (latest first), shift others up
+    const shifted = items.map((it, i) => ({ ...it, sortOrder: i + 1 }));
     const res = await apiFetch<NewsItem>("/api/site/news", {
       method: "POST",
       body: JSON.stringify({
@@ -3167,10 +3647,20 @@ function NewsEditor({
         source: form.source || null,
         url: form.url || null,
         publishedDate: form.publishedDate || null,
+        sortOrder: 0,
       }),
     });
     if (res.success && res.data) {
-      setItems((prev) => [...prev, res.data!]);
+      // Update sortOrders for existing items
+      for (const it of shifted) {
+        if (it.id) {
+          await apiFetch(`/api/site/news/${it.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ sortOrder: it.sortOrder }),
+          });
+        }
+      }
+      setItems([res.data!, ...shifted]);
       setForm({ title: "", source: "", url: "", publishedDate: "" });
     }
     onSaved();
@@ -3183,15 +3673,58 @@ function NewsEditor({
     onSaved();
   }
 
+  async function swapOrder(idx: number, direction: "up" | "down") {
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+    onSaving();
+    const newItems = [...items];
+    [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
+    // Update sortOrders
+    const updated = newItems.map((it, i) => ({ ...it, sortOrder: i }));
+    setItems(updated);
+    for (const it of updated) {
+      if (it.id) {
+        await apiFetch(`/api/site/news/${it.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ sortOrder: it.sortOrder }),
+        });
+      }
+    }
+    onSaved();
+  }
+
   return (
     <div className="space-y-3">
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
-          {items.map((item) => (
+          {items.map((item, idx) => (
             <div
               key={item.id}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
+              className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
             >
+              {/* Reorder buttons */}
+              <div className="flex flex-col gap-0.5">
+                <button
+                  onClick={() => swapOrder(idx, "up")}
+                  disabled={idx === 0}
+                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                  title="위로"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => swapOrder(idx, "down")}
+                  disabled={idx === items.length - 1}
+                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                  title="아래로"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
               <span className="flex-1 text-sm text-zinc-200 truncate">
                 {item.title}
               </span>
@@ -3263,9 +3796,13 @@ function VideosEditor({
   onSaved,
   onCancel,
 }: EditorBaseProps & { items: VideoItem[] }) {
-  const [items, setItems] = useState<VideoItem[]>(initialItems);
+  const [items, setItems] = useState<VideoItem[]>(
+    [...initialItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  );
   const [newVideoId, setNewVideoId] = useState("");
   const [newTitle, setNewTitle] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
 
   function extractVideoId(input: string): string {
     // Handle full YouTube URLs
@@ -3285,15 +3822,26 @@ function VideosEditor({
     const videoId = extractVideoId(newVideoId);
     if (!videoId) return;
     onSaving();
+    // New videos get sortOrder 0 (latest first), shift others up
+    const shifted = items.map((it, i) => ({ ...it, sortOrder: i + 1 }));
     const res = await apiFetch<VideoItem>("/api/site/videos", {
       method: "POST",
       body: JSON.stringify({
         videoId,
         title: newTitle || null,
+        sortOrder: 0,
       }),
     });
     if (res.success && res.data) {
-      setItems((prev) => [...prev, res.data!]);
+      for (const it of shifted) {
+        if (it.id) {
+          await apiFetch(`/api/site/videos/${it.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ sortOrder: it.sortOrder }),
+          });
+        }
+      }
+      setItems([res.data!, ...shifted]);
       setNewVideoId("");
       setNewTitle("");
     }
@@ -3307,33 +3855,125 @@ function VideosEditor({
     onSaved();
   }
 
+  async function swapOrder(idx: number, direction: "up" | "down") {
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+    onSaving();
+    const newItems = [...items];
+    [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
+    const updated = newItems.map((it, i) => ({ ...it, sortOrder: i }));
+    setItems(updated);
+    for (const it of updated) {
+      if (it.id) {
+        await apiFetch(`/api/site/videos/${it.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ sortOrder: it.sortOrder }),
+        });
+      }
+    }
+    onSaved();
+  }
+
+  function startEdit(item: VideoItem) {
+    setEditingId(item.id!);
+    setEditTitle(item.title || "");
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    onSaving();
+    const res = await apiFetch<VideoItem>(`/api/site/videos/${editingId}`, {
+      method: "PUT",
+      body: JSON.stringify({ title: editTitle || null }),
+    });
+    if (res.success && res.data) {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? { ...i, title: res.data!.title } : i)));
+    }
+    setEditingId(null);
+    onSaved();
+  }
+
   return (
     <div className="space-y-3">
       {items.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
-          {items.map((item) => (
-            <div key={item.id} className="relative group">
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+          {items.map((item, idx) => (
+            <div key={item.id} className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-2 py-2">
+              {/* Reorder buttons */}
+              <div className="flex flex-col gap-0.5">
+                <button
+                  onClick={() => swapOrder(idx, "up")}
+                  disabled={idx === 0}
+                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                  title="위로"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => swapOrder(idx, "down")}
+                  disabled={idx === items.length - 1}
+                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                  title="아래로"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+              {/* Thumbnail */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`}
                 alt={item.title || ""}
-                className="aspect-video w-full rounded-lg object-cover"
+                className="h-12 w-20 rounded object-cover flex-shrink-0"
               />
+              <span className="flex-1 text-xs text-zinc-300 truncate">
+                {item.title || item.videoId}
+              </span>
+              {/* Edit button */}
+              <button
+                onClick={() => startEdit(item)}
+                className="text-zinc-600 hover:text-blue-400 transition-colors"
+                title="제목 수정"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              {/* Delete button */}
               <button
                 onClick={() => item.id && removeItem(item.id)}
-                className="absolute top-1 right-1 rounded-full bg-red-500/80 p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                className="text-zinc-600 hover:text-red-400 transition-colors"
               >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              {item.title && (
-                <p className="mt-1 text-[10px] text-zinc-400 truncate">
-                  {item.title}
-                </p>
-              )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit title form */}
+      {editingId && (
+        <div className="rounded-lg border border-blue-500/30 bg-zinc-800/80 p-3 space-y-2">
+          <p className="text-xs font-medium text-blue-400">영상 제목 수정</p>
+          <input
+            className={inputClass}
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="영상 제목"
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditingId(null)} className={btnSecondary}>
+              취소
+            </button>
+            <button onClick={saveEdit} className={btnPrimary}>
+              저장
+            </button>
+          </div>
         </div>
       )}
 
