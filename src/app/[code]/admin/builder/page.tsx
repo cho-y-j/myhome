@@ -2206,6 +2206,8 @@ function HeroEditor({
 
   const [heroUploading, setHeroUploading] = useState(false);
   const [heroPreviewUrl, setHeroPreviewUrl] = useState<string | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryFiles, setLibraryFiles] = useState<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>([]);
   const heroFileRef = useRef<HTMLInputElement>(null);
 
   // Update both local form and parent settings for live preview
@@ -2321,7 +2323,8 @@ function HeroEditor({
 
       <div>
         <label className={labelClass}>히어로 이미지</label>
-        <div className="flex gap-2 items-center">
+        <p className="text-[10px] text-zinc-600 mb-1.5">권장: 1600 x 900px (16:9)</p>
+        <div className="flex gap-2 items-center flex-wrap">
           <input
             ref={heroFileRef}
             type="file"
@@ -2341,7 +2344,6 @@ function HeroEditor({
               setHeroUploading(false);
               if (json.success) {
                 updateField("heroImageUrl", json.data.url);
-                // objectURL 유지 — 서버 URL 접근 불가 시에도 미리보기 유지
               }
               e.target.value = "";
             }}
@@ -2352,12 +2354,25 @@ function HeroEditor({
             disabled={heroUploading}
             onClick={() => heroFileRef.current?.click()}
           >
-            {heroUploading ? "업로드 중..." : "📷 이미지 선택"}
+            {heroUploading ? "업로드 중..." : "📷 새 이미지"}
+          </button>
+          <button
+            type="button"
+            className={`${btnSecondary} inline-flex items-center gap-1`}
+            onClick={async () => {
+              if (!showLibrary) {
+                const res = await apiFetch<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>("/api/upload");
+                if (res.success && res.data) setLibraryFiles(res.data);
+              }
+              setShowLibrary(!showLibrary);
+            }}
+          >
+            {showLibrary ? "닫기" : "📁 라이브러리"}
           </button>
           {form.heroImageUrl && (
             <button
               className="text-xs text-red-400 hover:text-red-300"
-              onClick={() => updateField("heroImageUrl", "")}
+              onClick={() => { updateField("heroImageUrl", ""); setHeroPreviewUrl(null); }}
             >
               삭제
             </button>
@@ -2367,6 +2382,33 @@ function HeroEditor({
           <div className="mt-2 rounded-lg overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={heroPreviewUrl || form.heroImageUrl} alt="preview" className="h-24 w-full object-cover rounded-lg" />
+          </div>
+        )}
+        {showLibrary && (
+          <div className="mt-2 rounded-lg border border-white/10 bg-zinc-800/50 p-2 max-h-48 overflow-y-auto">
+            <p className="text-[10px] text-zinc-500 mb-1.5">이전에 업로드한 이미지를 선택하세요</p>
+            {libraryFiles.length === 0 && (
+              <p className="text-xs text-zinc-600 text-center py-4">업로드한 이미지가 없습니다</p>
+            )}
+            <div className="grid grid-cols-4 gap-1.5">
+              {libraryFiles.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    updateField("heroImageUrl", f.storedPath);
+                    setHeroPreviewUrl(null);
+                    setShowLibrary(false);
+                  }}
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                    form.heroImageUrl === f.storedPath ? "border-blue-500" : "border-transparent hover:border-white/20"
+                  }`}
+                  title={f.originalName || ""}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={f.storedPath} alt={f.originalName || ""} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
