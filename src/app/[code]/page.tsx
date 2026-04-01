@@ -131,6 +131,7 @@ async function getSiteData(code: string): Promise<SiteData | null> {
       publishedDate: n.publishedDate
         ? n.publishedDate.toISOString().split("T")[0]
         : null,
+      sortOrder: n.sortOrder,
     })),
     videos: videos.map((v) => ({
       id: v.id,
