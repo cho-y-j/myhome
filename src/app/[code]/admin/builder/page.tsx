@@ -1421,6 +1421,10 @@ function GalleryPreview({ block, gallery }: { block: Block; gallery: GalleryItem
    SCHEDULE Preview
    ═══════════════════════════════════════════════ */
 function SchedulePreview({ block, schedules }: { block: Block; schedules: ScheduleItem[] }) {
+  const [schedView, setSchedView] = useState<"list" | "calendar">("calendar");
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+
   if (schedules.length === 0) {
     return <EmptySection label="일정" icon="📅" />;
   }
@@ -1431,53 +1435,98 @@ function SchedulePreview({ block, schedules }: { block: Block; schedules: Schedu
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
+  // Calendar helpers
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth + 1, 0);
+  const startWeekday = firstDay.getDay();
+  const daysInMonth = lastDay.getDate();
+  const today = new Date();
+  const isToday = (day: number) => today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === day;
+
+  const dayMap: Record<number, ScheduleItem[]> = {};
+  for (const item of schedules) {
+    const d = new Date(item.date);
+    if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+      const day = d.getDate();
+      if (!dayMap[day]) dayMap[day] = [];
+      dayMap[day].push(item);
+    }
+  }
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); }
+    else setCalMonth(calMonth - 1);
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); }
+    else setCalMonth(calMonth + 1);
+  }
+
   return (
     <section className="mx-auto max-w-3xl px-6 py-16 sm:py-20">
-      <div className="mb-10 text-center">
+      <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">{block.title || BLOCK_TYPES.schedule.defaultTitle}</h2>
       </div>
-      <div className="space-y-3">
-        {sorted.map((item) => {
-          const past = isPast(item.date);
-          const d = new Date(item.date);
-          const itemColor = colors[String(item.id)] || "var(--primary)";
-          return (
-            <div
-              key={item.id}
-              className={`flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm ${
-                past ? "opacity-50" : ""
-              }`}
-            >
-              <div
-                className="flex flex-shrink-0 flex-col items-center rounded-xl px-3 py-2 min-w-[52px] text-white"
-                style={{
-                  backgroundColor: past ? "#9ca3af" : itemColor,
-                }}
-              >
-                <span className="text-2xl font-bold leading-tight">
-                  {d.getDate()}
-                </span>
-                <span className="text-[10px] font-medium uppercase tracking-wider">
-                  {d.getMonth() + 1}월
-                </span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-gray-900">{item.title}</h3>
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
-                  <span>{formatDate(item.date)}</span>
-                  {item.time && <span>{item.time}</span>}
-                  {item.location && <span>{item.location}</span>}
-                </div>
-              </div>
-              {past && (
-                <span className="flex-shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
-                  종료
-                </span>
-              )}
-            </div>
-          );
-        })}
+
+      {/* View toggle */}
+      <div className="mb-6 flex justify-center gap-2">
+        <button onClick={() => setSchedView("calendar")} className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${schedView === "calendar" ? "text-white" : "bg-gray-100 text-gray-600"}`} style={schedView === "calendar" ? { backgroundColor: "var(--primary)" } : undefined}>달력</button>
+        <button onClick={() => setSchedView("list")} className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${schedView === "list" ? "text-white" : "bg-gray-100 text-gray-600"}`} style={schedView === "list" ? { backgroundColor: "var(--primary)" } : undefined}>목록</button>
       </div>
+
+      {schedView === "calendar" ? (
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={prevMonth} className="rounded-lg p-1 hover:bg-gray-100"><svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg></button>
+            <span className="text-lg font-bold text-gray-900">{calYear}년 {calMonth + 1}월</span>
+            <button onClick={nextMonth} className="rounded-lg p-1 hover:bg-gray-100"><svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg></button>
+          </div>
+          <div className="grid grid-cols-7 text-center text-xs font-medium text-gray-400 mb-1">
+            {["일","월","화","수","목","금","토"].map(d => <div key={d} className="py-1">{d}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-px">
+            {Array.from({ length: startWeekday }).map((_, i) => <div key={`e${i}`} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const items = dayMap[day] || [];
+              return (
+                <div key={day} className={`min-h-[48px] rounded-lg p-1 text-xs ${isToday(day) ? "bg-blue-50 ring-1 ring-blue-300" : "hover:bg-gray-50"}`}>
+                  <div className={`font-medium ${isToday(day) ? "text-blue-600" : "text-gray-700"}`}>{day}</div>
+                  {items.slice(0, 2).map((it) => (
+                    <div key={it.id} className="mt-0.5 truncate rounded px-1 py-0.5 text-[9px] font-medium text-white" style={{ backgroundColor: colors[String(it.id)] || "var(--primary)" }}>{it.title}</div>
+                  ))}
+                  {items.length > 2 && <div className="text-[9px] text-gray-400 mt-0.5">+{items.length - 2}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sorted.map((item) => {
+            const past = isPast(item.date);
+            const d = new Date(item.date);
+            const itemColor = colors[String(item.id)] || "var(--primary)";
+            return (
+              <div key={item.id} className={`flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm ${past ? "opacity-50" : ""}`}>
+                <div className="flex flex-shrink-0 flex-col items-center rounded-xl px-3 py-2 min-w-[52px] text-white" style={{ backgroundColor: past ? "#9ca3af" : itemColor }}>
+                  <span className="text-2xl font-bold leading-tight">{d.getDate()}</span>
+                  <span className="text-[10px] font-medium uppercase tracking-wider">{d.getMonth() + 1}월</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-gray-900">{item.title}</h3>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
+                    <span>{formatDate(item.date)}</span>
+                    {item.time && <span>{item.time}</span>}
+                    {item.location && <span>{item.location}</span>}
+                  </div>
+                </div>
+                {past && <span className="flex-shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">종료</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
