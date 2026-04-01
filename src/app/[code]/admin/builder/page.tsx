@@ -1893,17 +1893,17 @@ function SectionEditor({
   }
 
   const visibilityToggle = (
-    <div className="mb-3 flex items-center justify-between rounded-lg border border-white/10 bg-zinc-800/50 px-3 py-2">
-      <span className="text-xs text-zinc-400">섹션 표시</span>
+    <div className="mb-3 flex items-center justify-between rounded-lg border border-white/10 bg-zinc-800/50 px-3 py-2.5">
+      <span className="text-xs text-zinc-400">공개 사이트에 표시</span>
       <button
         onClick={handleToggleVisibility}
-        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-          block.visible
-            ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-            : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-        }`}
+        className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+        style={{ backgroundColor: block.visible ? "#22c55e" : "#3f3f46" }}
       >
-        {block.visible ? "활성화" : "비활성화"}
+        <span
+          className="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform"
+          style={{ transform: block.visible ? "translateX(24px)" : "translateX(4px)" }}
+        />
       </button>
     </div>
   );
