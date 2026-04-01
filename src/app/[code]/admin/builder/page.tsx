@@ -1030,6 +1030,12 @@ function HeroPreview({
           {formatDDay(dDay)}
         </span>
       )}
+      <span className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1 cursor-default">
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+        링크 복사
+      </span>
     </div>
   );
 
@@ -3712,6 +3718,8 @@ function NewsEditor({
     url: "",
     publishedDate: "",
   });
+  const [newsDragIdx, setNewsDragIdx] = useState<number | null>(null);
+  const [newsDragOverIdx, setNewsDragOverIdx] = useState<number | null>(null);
 
   async function saveShowCount(val: number) {
     setShowCount(val);
@@ -3766,17 +3774,9 @@ function NewsEditor({
     onSaving();
     const newItems = [...items];
     [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
-    // Update sortOrders
-    const updated = newItems.map((it, i) => ({ ...it, sortOrder: i }));
-    setItems(updated);
-    for (const it of updated) {
-      if (it.id) {
-        await apiFetch(`/api/site/news/${it.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ sortOrder: it.sortOrder }),
-        });
-      }
-    }
+    setItems(newItems);
+    const ids = newItems.map((i) => i.id!);
+    await apiFetch("/api/site/news/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
     onSaved();
   }
 
@@ -3803,7 +3803,28 @@ function NewsEditor({
           {items.map((item, idx) => (
             <div
               key={item.id}
-              className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
+              draggable
+              onDragStart={() => setNewsDragIdx(idx)}
+              onDragOver={(e) => { e.preventDefault(); setNewsDragOverIdx(idx); }}
+              onDragLeave={() => setNewsDragOverIdx(null)}
+              onDrop={async () => {
+                if (newsDragIdx === null || newsDragIdx === idx) return;
+                const newItems = [...items];
+                const [moved] = newItems.splice(newsDragIdx, 1);
+                newItems.splice(idx, 0, moved);
+                setItems(newItems);
+                setNewsDragIdx(null);
+                setNewsDragOverIdx(null);
+                const ids = newItems.map((i) => i.id!);
+                await apiFetch("/api/site/news/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+                onSaved();
+              }}
+              onDragEnd={() => { setNewsDragIdx(null); setNewsDragOverIdx(null); }}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 cursor-grab transition-all ${
+                newsDragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
+                newsDragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
+                "border-white/5 bg-zinc-800/50"
+              }`}
             >
               {/* Reorder buttons */}
               <div className="flex flex-col gap-0.5">
@@ -3908,6 +3929,8 @@ function VideosEditor({
   const [newTitle, setNewTitle] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [vidDragIdx, setVidDragIdx] = useState<number | null>(null);
+  const [vidDragOverIdx, setVidDragOverIdx] = useState<number | null>(null);
 
   async function saveVidShowCount(val: number) {
     setVidShowCount(val);
@@ -3975,16 +3998,9 @@ function VideosEditor({
     onSaving();
     const newItems = [...items];
     [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
-    const updated = newItems.map((it, i) => ({ ...it, sortOrder: i }));
-    setItems(updated);
-    for (const it of updated) {
-      if (it.id) {
-        await apiFetch(`/api/site/videos/${it.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ sortOrder: it.sortOrder }),
-        });
-      }
-    }
+    setItems(newItems);
+    const ids = newItems.map((i) => i.id!);
+    await apiFetch("/api/site/videos/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
     onSaved();
   }
 
@@ -4028,7 +4044,31 @@ function VideosEditor({
       {items.length > 0 && (
         <div className="space-y-2 max-h-60 overflow-y-auto">
           {items.map((item, idx) => (
-            <div key={item.id} className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-2 py-2">
+            <div
+              key={item.id}
+              draggable
+              onDragStart={() => setVidDragIdx(idx)}
+              onDragOver={(e) => { e.preventDefault(); setVidDragOverIdx(idx); }}
+              onDragLeave={() => setVidDragOverIdx(null)}
+              onDrop={async () => {
+                if (vidDragIdx === null || vidDragIdx === idx) return;
+                const newItems = [...items];
+                const [moved] = newItems.splice(vidDragIdx, 1);
+                newItems.splice(idx, 0, moved);
+                setItems(newItems);
+                setVidDragIdx(null);
+                setVidDragOverIdx(null);
+                const ids = newItems.map((i) => i.id!);
+                await apiFetch("/api/site/videos/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+                onSaved();
+              }}
+              onDragEnd={() => { setVidDragIdx(null); setVidDragOverIdx(null); }}
+              className={`flex items-center gap-2 rounded-lg border px-2 py-2 cursor-grab transition-all ${
+                vidDragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
+                vidDragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
+                "border-white/5 bg-zinc-800/50"
+              }`}
+            >
               {/* Reorder buttons */}
               <div className="flex flex-col gap-0.5">
                 <button
@@ -4143,13 +4183,17 @@ function ContactsEditor({
   onSaved,
   onCancel,
 }: EditorBaseProps & { items: ContactItem[] }) {
-  const [items, setItems] = useState<ContactItem[]>(initialItems);
+  const [items, setItems] = useState<ContactItem[]>(
+    [...initialItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  );
   const [form, setForm] = useState({
     type: "phone",
     label: "",
     value: "",
     url: "",
   });
+  const [ctDragIdx, setCtDragIdx] = useState<number | null>(null);
+  const [ctDragOverIdx, setCtDragOverIdx] = useState<number | null>(null);
 
   async function addItem() {
     if (!form.value.trim()) return;
@@ -4177,15 +4221,71 @@ function ContactsEditor({
     onSaved();
   }
 
+  async function swapOrder(idx: number, direction: "up" | "down") {
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+    onSaving();
+    const newItems = [...items];
+    [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
+    setItems(newItems);
+    const ids = newItems.map((i) => i.id!);
+    await apiFetch("/api/site/contacts/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+    onSaved();
+  }
+
   return (
     <div className="space-y-3">
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
-          {items.map((item) => (
+          {items.map((item, idx) => (
             <div
               key={item.id}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
+              draggable
+              onDragStart={() => setCtDragIdx(idx)}
+              onDragOver={(e) => { e.preventDefault(); setCtDragOverIdx(idx); }}
+              onDragLeave={() => setCtDragOverIdx(null)}
+              onDrop={async () => {
+                if (ctDragIdx === null || ctDragIdx === idx) return;
+                const newItems = [...items];
+                const [moved] = newItems.splice(ctDragIdx, 1);
+                newItems.splice(idx, 0, moved);
+                setItems(newItems);
+                setCtDragIdx(null);
+                setCtDragOverIdx(null);
+                const ids = newItems.map((i) => i.id!);
+                await apiFetch("/api/site/contacts/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+                onSaved();
+              }}
+              onDragEnd={() => { setCtDragIdx(null); setCtDragOverIdx(null); }}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-grab transition-all ${
+                ctDragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
+                ctDragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
+                "border-white/5 bg-zinc-800/50"
+              }`}
             >
+              {/* Reorder buttons */}
+              <div className="flex flex-col gap-0.5">
+                <button
+                  onClick={() => swapOrder(idx, "up")}
+                  disabled={idx === 0}
+                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                  title="위로"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => swapOrder(idx, "down")}
+                  disabled={idx === items.length - 1}
+                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                  title="아래로"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
               <span className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] font-bold text-zinc-300">
                 {item.type}
               </span>
