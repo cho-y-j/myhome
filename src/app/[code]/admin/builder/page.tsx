@@ -1314,6 +1314,15 @@ function GoalsPreview({ block, pledges }: { block: Block; pledges: PledgeItem[] 
         <div className="space-y-4">
           {sorted.map((pledge, idx) => {
             const number = String(idx + 1).padStart(2, "0");
+            const parsed = (() => {
+              const d = pledge.details;
+              if (Array.isArray(d)) return { items: d, imageUrl: null };
+              if (d && typeof d === "object" && "items" in (d as Record<string, unknown>)) {
+                const obj = d as { items: string[]; imageUrl?: string };
+                return { items: obj.items || [], imageUrl: obj.imageUrl || null };
+              }
+              return { items: [], imageUrl: null };
+            })();
             return (
               <div
                 key={pledge.id || idx}
@@ -1335,6 +1344,22 @@ function GoalsPreview({ block, pledges }: { block: Block; pledges: PledgeItem[] 
                       <p className="mt-2 text-sm leading-relaxed text-gray-600">
                         {pledge.description}
                       </p>
+                    )}
+                    {parsed.imageUrl && (
+                      <div className="mt-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={parsed.imageUrl} alt={pledge.title} className="w-full rounded-xl" loading="lazy" />
+                      </div>
+                    )}
+                    {parsed.items.length > 0 && (
+                      <ul className="mt-3 space-y-1 border-t border-gray-100 pt-3">
+                        {parsed.items.map((detail, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: "var(--primary)" }} />
+                            {detail}
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 </div>
@@ -1394,6 +1419,8 @@ function SchedulePreview({ block, schedules }: { block: Block; schedules: Schedu
     return <EmptySection label="일정" icon="📅" />;
   }
 
+  const colors = (block.content as { colors?: Record<string, string> } | null)?.colors || {};
+
   const sorted = [...schedules].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
@@ -1407,6 +1434,7 @@ function SchedulePreview({ block, schedules }: { block: Block; schedules: Schedu
         {sorted.map((item) => {
           const past = isPast(item.date);
           const d = new Date(item.date);
+          const itemColor = colors[String(item.id)] || "var(--primary)";
           return (
             <div
               key={item.id}
@@ -1417,7 +1445,7 @@ function SchedulePreview({ block, schedules }: { block: Block; schedules: Schedu
               <div
                 className="flex flex-shrink-0 flex-col items-center rounded-xl px-3 py-2 min-w-[52px] text-white"
                 style={{
-                  backgroundColor: past ? "#9ca3af" : "var(--primary)",
+                  backgroundColor: past ? "#9ca3af" : itemColor,
                 }}
               >
                 <span className="text-2xl font-bold leading-tight">
