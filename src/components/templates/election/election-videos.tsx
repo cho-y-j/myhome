@@ -6,16 +6,17 @@ import type { SiteData } from "@/types/site";
 interface Props {
   videos: SiteData["videos"];
   sectionTitle?: string;
+  showCount?: number;
 }
 
-export default function ElectionVideos({ videos, sectionTitle }: Props) {
+export default function ElectionVideos({ videos, sectionTitle, showCount = 4 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   if (videos.length === 0) return null;
 
   const sorted = [...videos].sort((a, b) => a.sortOrder - b.sortOrder);
-  const visible = showAll ? sorted : sorted.slice(0, 4);
+  const visible = showAll ? sorted : sorted.slice(0, showCount);
 
   return (
     <section id="video" className="bg-gray-50 py-16 sm:py-20">
@@ -97,7 +98,7 @@ export default function ElectionVideos({ videos, sectionTitle }: Props) {
         </div>
 
         {/* Show more button */}
-        {sorted.length > 4 && !showAll && (
+        {sorted.length > showCount && !showAll && (
           <div className="mt-8 text-center">
             <button
               onClick={() => setShowAll(true)}

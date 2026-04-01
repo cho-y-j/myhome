@@ -2854,6 +2854,8 @@ function GoalsEditor({
   const [editForm, setEditForm] = useState({ title: "", description: "", details: "" as string, imageUrl: "" });
   const pledgeFileRef = useRef<HTMLInputElement>(null);
   const [pledgeUploading, setPledgeUploading] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   // Helper to parse details (supports old string[] and new {items, imageUrl} format)
   function parseDetails(details: unknown): { items: string[]; imageUrl: string | null } {
@@ -3050,7 +3052,28 @@ function GoalsEditor({
             return (
               <div
                 key={item.id || idx}
-                className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
+                draggable
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+                onDragLeave={() => setDragOverIdx(null)}
+                onDrop={async () => {
+                  if (dragIdx === null || dragIdx === idx) return;
+                  const newItems = [...items];
+                  const [moved] = newItems.splice(dragIdx, 1);
+                  newItems.splice(idx, 0, moved);
+                  setItems(newItems);
+                  setDragIdx(null);
+                  setDragOverIdx(null);
+                  const ids = newItems.map((i) => i.id!);
+                  await apiFetch("/api/site/pledges/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+                  onSaved();
+                }}
+                onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-grab transition-all ${
+                  dragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
+                  dragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
+                  "border-white/5 bg-zinc-800/50"
+                }`}
               >
                 {/* Reorder buttons */}
                 <div className="flex flex-col gap-0.5">
@@ -3166,6 +3189,8 @@ function GalleryEditor({
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
   const [galleryEditForm, setGalleryEditForm] = useState({ altText: "", category: "" });
+  const [galDragIdx, setGalDragIdx] = useState<number | null>(null);
+  const [galDragOverIdx, setGalDragOverIdx] = useState<number | null>(null);
 
   async function addItem() {
     if (!newUrl.trim()) return;
@@ -3241,7 +3266,30 @@ function GalleryEditor({
       {items.length > 0 && (
         <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
           {items.map((item, idx) => (
-            <div key={item.id} className="relative group">
+            <div
+              key={item.id}
+              className={`relative group cursor-grab transition-all ${
+                galDragIdx === idx ? "opacity-40 ring-2 ring-blue-500/30" :
+                galDragOverIdx === idx ? "ring-2 ring-blue-400/50" : ""
+              }`}
+              draggable
+              onDragStart={() => setGalDragIdx(idx)}
+              onDragOver={(e) => { e.preventDefault(); setGalDragOverIdx(idx); }}
+              onDragLeave={() => setGalDragOverIdx(null)}
+              onDrop={async () => {
+                if (galDragIdx === null || galDragIdx === idx) return;
+                const newItems = [...items];
+                const [moved] = newItems.splice(galDragIdx, 1);
+                newItems.splice(idx, 0, moved);
+                setItems(newItems);
+                setGalDragIdx(null);
+                setGalDragOverIdx(null);
+                const ids = newItems.map((i) => i.id!);
+                await apiFetch("/api/site/gallery/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+                onSaved();
+              }}
+              onDragEnd={() => { setGalDragIdx(null); setGalDragOverIdx(null); }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.url}
@@ -3656,12 +3704,23 @@ function NewsEditor({
   const [items, setItems] = useState<NewsItem[]>(
     [...initialItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
   );
+  const blockContent = (block.content || {}) as Record<string, unknown>;
+  const [showCount, setShowCount] = useState<number>((blockContent.showCount as number) || 3);
   const [form, setForm] = useState({
     title: "",
     source: "",
     url: "",
     publishedDate: "",
   });
+
+  async function saveShowCount(val: number) {
+    setShowCount(val);
+    await apiFetch(`/api/site/blocks/${block.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ content: { ...blockContent, showCount: val } }),
+    });
+    onSaved();
+  }
 
   async function addItem() {
     if (!form.title.trim()) return;
@@ -3723,6 +3782,22 @@ function NewsEditor({
 
   return (
     <div className="space-y-3">
+      {/* Show count config */}
+      <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-zinc-800/30 px-3 py-2">
+        <label className={labelClass}>공개 사이트 노출 갯수</label>
+        <input
+          type="number"
+          min={1}
+          max={99}
+          className={`${inputClass} w-20 text-center`}
+          value={showCount}
+          onChange={(e) => {
+            const v = parseInt(e.target.value, 10);
+            if (!isNaN(v) && v > 0) saveShowCount(v);
+          }}
+        />
+      </div>
+
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
           {items.map((item, idx) => (
@@ -3827,10 +3902,21 @@ function VideosEditor({
   const [items, setItems] = useState<VideoItem[]>(
     [...initialItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
   );
+  const vidBlockContent = (block.content || {}) as Record<string, unknown>;
+  const [vidShowCount, setVidShowCount] = useState<number>((vidBlockContent.showCount as number) || 4);
   const [newVideoId, setNewVideoId] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
+
+  async function saveVidShowCount(val: number) {
+    setVidShowCount(val);
+    await apiFetch(`/api/site/blocks/${block.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ content: { ...vidBlockContent, showCount: val } }),
+    });
+    onSaved();
+  }
 
   function extractVideoId(input: string): string {
     // Handle full YouTube URLs
@@ -3923,6 +4009,22 @@ function VideosEditor({
 
   return (
     <div className="space-y-3">
+      {/* Show count config */}
+      <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-zinc-800/30 px-3 py-2">
+        <label className={labelClass}>공개 사이트 노출 갯수</label>
+        <input
+          type="number"
+          min={1}
+          max={99}
+          className={`${inputClass} w-20 text-center`}
+          value={vidShowCount}
+          onChange={(e) => {
+            const v = parseInt(e.target.value, 10);
+            if (!isNaN(v) && v > 0) saveVidShowCount(v);
+          }}
+        />
+      </div>
+
       {items.length > 0 && (
         <div className="space-y-2 max-h-60 overflow-y-auto">
           {items.map((item, idx) => (

@@ -6,6 +6,7 @@ import type { SiteData } from "@/types/site";
 interface Props {
   news: SiteData["news"];
   sectionTitle?: string;
+  showCount?: number;
 }
 
 function formatDate(dateStr: string): string {
@@ -13,13 +14,13 @@ function formatDate(dateStr: string): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default function ElectionNews({ news, sectionTitle }: Props) {
+export default function ElectionNews({ news, sectionTitle, showCount = 3 }: Props) {
   const [showAll, setShowAll] = useState(false);
 
   if (news.length === 0) return null;
 
   const sorted = [...news].sort((a, b) => a.sortOrder - b.sortOrder);
-  const visible = showAll ? sorted : sorted.slice(0, 3);
+  const visible = showAll ? sorted : sorted.slice(0, showCount);
 
   return (
     <section id="news" className="mx-auto max-w-4xl px-6 py-16 sm:py-20">
@@ -85,7 +86,7 @@ export default function ElectionNews({ news, sectionTitle }: Props) {
       </div>
 
       {/* Show more button */}
-      {sorted.length > 3 && !showAll && (
+      {sorted.length > showCount && !showAll && (
         <div className="mt-6 text-center">
           <button
             onClick={() => setShowAll(true)}

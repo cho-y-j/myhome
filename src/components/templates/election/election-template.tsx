@@ -163,20 +163,28 @@ export default function ElectionTemplate({ data }: Props) {
         />
       );
     },
-    news: () => (
-      <ElectionNews
-        key="news"
-        news={data.news}
-        sectionTitle={blockTitle("news")}
-      />
-    ),
-    videos: () => (
-      <ElectionVideos
-        key="videos"
-        videos={data.videos}
-        sectionTitle={blockTitle("videos")}
-      />
-    ),
+    news: () => {
+      const newsContent = blockContent("news");
+      return (
+        <ElectionNews
+          key="news"
+          news={data.news}
+          sectionTitle={blockTitle("news")}
+          showCount={(newsContent?.showCount as number) || 3}
+        />
+      );
+    },
+    videos: () => {
+      const videosContent = blockContent("videos");
+      return (
+        <ElectionVideos
+          key="videos"
+          videos={data.videos}
+          sectionTitle={blockTitle("videos")}
+          showCount={(videosContent?.showCount as number) || 4}
+        />
+      );
+    },
     contacts: () => (
       <ElectionContacts
         key="contacts"
