@@ -64,7 +64,7 @@ function PledgeCard({
               <img
                 src={parsed.imageUrl}
                 alt={pledge.title}
-                className="w-full max-h-64 rounded-xl object-cover"
+                className="w-full rounded-xl"
                 loading="lazy"
               />
             </div>
