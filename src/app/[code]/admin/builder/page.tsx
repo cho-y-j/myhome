@@ -2796,7 +2796,7 @@ function CareerEditor({
       body: JSON.stringify(newItem),
     });
     if (res.success && res.data) {
-      setItems((prev) => [...prev, res.data!]);
+      setItems((prev) => [res.data!, ...prev]);
       setNewItem({ type: "career", title: "", isCurrent: false });
     }
     onSaved();
@@ -2941,7 +2941,7 @@ function GoalsEditor({
       }),
     });
     if (res.success && res.data) {
-      setItems((prev) => [...prev, res.data!]);
+      setItems((prev) => [res.data!, ...prev]);
       setNewTitle("");
       setNewDesc("");
     }
@@ -3601,7 +3601,7 @@ function ScheduleEditor({
       }),
     });
     if (res.success && res.data) {
-      setItems((prev) => [...prev, res.data!]);
+      setItems((prev) => [res.data!, ...prev]);
       // Save color if selected
       if (form.color && res.data.id) {
         const newColors = { ...scheduleColors, [String(res.data.id)]: form.color };
@@ -4257,7 +4257,7 @@ function ContactsEditor({
       }),
     });
     if (res.success && res.data) {
-      setItems((prev) => [...prev, res.data!]);
+      setItems((prev) => [res.data!, ...prev]);
       setForm({ type: "phone", label: "", value: "", url: "" });
     }
     onSaved();
