@@ -1030,12 +1030,6 @@ function HeroPreview({
           {formatDDay(dDay)}
         </span>
       )}
-      <span className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm flex items-center gap-1 cursor-default">
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-        </svg>
-        링크 복사
-      </span>
     </div>
   );
 
@@ -1059,7 +1053,7 @@ function HeroPreview({
           {settings.heroSubSlogan}
         </p>
       )}
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-3 flex-wrap">
         <span
           className="rounded-full px-7 py-3 text-sm font-bold text-white shadow-lg cursor-default"
           style={{
@@ -1071,6 +1065,12 @@ function HeroPreview({
         </span>
         <span className="rounded-full border-2 border-white/50 bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur-sm cursor-default">
           {button2Text}
+        </span>
+        <span className="rounded-full border-2 border-white/50 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm cursor-default flex items-center gap-1.5">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          링크 복사
         </span>
       </div>
     </div>
@@ -2113,6 +2113,8 @@ function SiteInfoPanel({
   });
   const [ogUploading, setOgUploading] = useState(false);
   const [ogPreviewUrl, setOgPreviewUrl] = useState<string | null>(null);
+  const [showOgLibrary, setShowOgLibrary] = useState(false);
+  const [ogLibraryFiles, setOgLibraryFiles] = useState<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>([]);
   const [saved, setSaved] = useState(false);
   const ogFileRef = useRef<HTMLInputElement>(null);
 
@@ -2180,14 +2182,62 @@ function SiteInfoPanel({
                 e.target.value = "";
               }}
             />
-            <button
-              type="button"
-              className={`${btnSecondary} w-full`}
-              disabled={ogUploading}
-              onClick={() => ogFileRef.current?.click()}
-            >
-              {ogUploading ? "업로드 중..." : "📷 이미지 선택"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={`${btnSecondary} flex-1`}
+                disabled={ogUploading}
+                onClick={() => ogFileRef.current?.click()}
+              >
+                {ogUploading ? "업로드 중..." : "📷 이미지 선택"}
+              </button>
+              <button
+                type="button"
+                className={`${btnSecondary} inline-flex items-center gap-1`}
+                onClick={async () => {
+                  if (!showOgLibrary) {
+                    const res = await apiFetch<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>("/api/upload");
+                    if (res.success && res.data) setOgLibraryFiles(res.data);
+                  }
+                  setShowOgLibrary(!showOgLibrary);
+                }}
+              >
+                {showOgLibrary ? "닫기" : "📁 라이브러리"}
+              </button>
+            </div>
+            {showOgLibrary && (
+              <div className="rounded-lg border border-white/10 bg-zinc-800/50 p-2 max-h-48 overflow-y-auto">
+                <p className="text-[10px] text-zinc-500 mb-1.5">이전에 업로드한 이미지를 선택하세요</p>
+                {ogLibraryFiles.length === 0 && (
+                  <p className="text-xs text-zinc-600 text-center py-4">업로드한 이미지가 없습니다</p>
+                )}
+                <div className="grid grid-cols-4 gap-1.5">
+                  {ogLibraryFiles.map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={async () => {
+                        const newUrl = f.storedPath;
+                        setForm((prev) => ({ ...prev, ogImageUrl: newUrl }));
+                        setOgPreviewUrl(null);
+                        await apiFetch("/api/site/settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ ogImageUrl: newUrl }),
+                        });
+                        setSettings((prev) => ({ ...prev, ogImageUrl: newUrl }));
+                        setShowOgLibrary(false);
+                      }}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                        form.ogImageUrl === f.storedPath ? "border-blue-500" : "border-transparent hover:border-white/20"
+                      }`}
+                      title={f.originalName || ""}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={f.storedPath} alt={f.originalName || ""} className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {(ogPreviewUrl || form.ogImageUrl) && (
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2677,6 +2727,8 @@ function IntroEditor({
   });
   const [profileUploading, setProfileUploading] = useState(false);
   const [profilePreviewUrl, setProfilePreviewUrl] = useState<string | null>(null);
+  const [showProfileLibrary, setShowProfileLibrary] = useState(false);
+  const [profileLibraryFiles, setProfileLibraryFiles] = useState<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>([]);
   const profileFileRef = useRef<HTMLInputElement>(null);
 
   // Update both local form and parent settings for live preview
@@ -2737,14 +2789,54 @@ function IntroEditor({
           >
             {profileUploading ? "업로드 중..." : "📷 이미지 선택"}
           </button>
+          <button
+            type="button"
+            className={`${btnSecondary} inline-flex items-center gap-1`}
+            onClick={async () => {
+              if (!showProfileLibrary) {
+                const res = await apiFetch<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>("/api/upload");
+                if (res.success && res.data) setProfileLibraryFiles(res.data);
+              }
+              setShowProfileLibrary(!showProfileLibrary);
+            }}
+          >
+            {showProfileLibrary ? "닫기" : "📁 라이브러리"}
+          </button>
           {form.profileImageUrl && (
-            <button className="text-xs text-red-400 hover:text-red-300" onClick={() => updateField("profileImageUrl", "")}>삭제</button>
+            <button className="text-xs text-red-400 hover:text-red-300" onClick={() => { updateField("profileImageUrl", ""); setProfilePreviewUrl(null); }}>삭제</button>
           )}
         </div>
         {(profilePreviewUrl || form.profileImageUrl) && (
           <div className="mt-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={profilePreviewUrl || form.profileImageUrl} alt="preview" className="h-16 w-16 object-cover rounded-full" />
+          </div>
+        )}
+        {showProfileLibrary && (
+          <div className="mt-2 rounded-lg border border-white/10 bg-zinc-800/50 p-2 max-h-48 overflow-y-auto">
+            <p className="text-[10px] text-zinc-500 mb-1.5">이전에 업로드한 이미지를 선택하세요</p>
+            {profileLibraryFiles.length === 0 && (
+              <p className="text-xs text-zinc-600 text-center py-4">업로드한 이미지가 없습니다</p>
+            )}
+            <div className="grid grid-cols-4 gap-1.5">
+              {profileLibraryFiles.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    updateField("profileImageUrl", f.storedPath);
+                    setProfilePreviewUrl(null);
+                    setShowProfileLibrary(false);
+                  }}
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                    form.profileImageUrl === f.storedPath ? "border-blue-500" : "border-transparent hover:border-white/20"
+                  }`}
+                  title={f.originalName || ""}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={f.storedPath} alt={f.originalName || ""} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -2909,6 +3001,8 @@ function GoalsEditor({
   const [editForm, setEditForm] = useState({ title: "", description: "", details: "" as string, imageUrl: "" });
   const pledgeFileRef = useRef<HTMLInputElement>(null);
   const [pledgeUploading, setPledgeUploading] = useState(false);
+  const [showPledgeLibrary, setShowPledgeLibrary] = useState(false);
+  const [pledgeLibraryFiles, setPledgeLibraryFiles] = useState<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
@@ -3083,14 +3177,55 @@ function GoalsEditor({
                         </button>
                       </div>
                     )}
-                    <button
-                      type="button"
-                      className={`${btnSecondary} text-xs`}
-                      disabled={pledgeUploading}
-                      onClick={() => pledgeFileRef.current?.click()}
-                    >
-                      {pledgeUploading ? "업로드 중..." : editForm.imageUrl ? "이미지 변경" : "이미지 추가"}
-                    </button>
+                    <div className="flex gap-2 items-center flex-wrap">
+                      <button
+                        type="button"
+                        className={`${btnSecondary} text-xs`}
+                        disabled={pledgeUploading}
+                        onClick={() => pledgeFileRef.current?.click()}
+                      >
+                        {pledgeUploading ? "업로드 중..." : editForm.imageUrl ? "이미지 변경" : "이미지 추가"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`${btnSecondary} text-xs`}
+                        onClick={async () => {
+                          if (!showPledgeLibrary) {
+                            const res = await apiFetch<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>("/api/upload");
+                            if (res.success && res.data) setPledgeLibraryFiles(res.data);
+                          }
+                          setShowPledgeLibrary(!showPledgeLibrary);
+                        }}
+                      >
+                        {showPledgeLibrary ? "닫기" : "📁 라이브러리"}
+                      </button>
+                    </div>
+                    {showPledgeLibrary && (
+                      <div className="mt-1 rounded-lg border border-white/10 bg-zinc-800/50 p-2 max-h-48 overflow-y-auto">
+                        <p className="text-[10px] text-zinc-500 mb-1.5">이전에 업로드한 이미지를 선택하세요</p>
+                        {pledgeLibraryFiles.length === 0 && (
+                          <p className="text-xs text-zinc-600 text-center py-4">업로드한 이미지가 없습니다</p>
+                        )}
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {pledgeLibraryFiles.map((f) => (
+                            <button
+                              key={f.id}
+                              onClick={() => {
+                                setEditForm((prev) => ({ ...prev, imageUrl: f.storedPath }));
+                                setShowPledgeLibrary(false);
+                              }}
+                              className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                                editForm.imageUrl === f.storedPath ? "border-blue-500" : "border-transparent hover:border-white/20"
+                              }`}
+                              title={f.originalName || ""}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={f.storedPath} alt={f.originalName || ""} className="h-full w-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setEditingId(null)} className={btnSecondary}>
@@ -3241,6 +3376,8 @@ function GalleryEditor({
   const [newCat, setNewCat] = useState("campaign");
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryPreviewUrl, setGalleryPreviewUrl] = useState<string | null>(null);
+  const [showGalleryLibrary, setShowGalleryLibrary] = useState(false);
+  const [galleryLibraryFiles, setGalleryLibraryFiles] = useState<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>([]);
   const galleryFileRef = useRef<HTMLInputElement>(null);
   const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
   const [galleryEditForm, setGalleryEditForm] = useState({ altText: "", category: "" });
@@ -3488,14 +3625,71 @@ function GalleryEditor({
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          className={`${btnPrimary} inline-flex items-center gap-2 w-full justify-center py-3`}
-          disabled={galleryUploading}
-          onClick={() => galleryFileRef.current?.click()}
-        >
-          {galleryUploading ? "업로드 중..." : "사진 업로드 (여러 장 가능)"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={`${btnPrimary} inline-flex items-center gap-2 flex-1 justify-center py-3`}
+            disabled={galleryUploading}
+            onClick={() => galleryFileRef.current?.click()}
+          >
+            {galleryUploading ? "업로드 중..." : "사진 업로드 (여러 장 가능)"}
+          </button>
+          <button
+            type="button"
+            className={`${btnSecondary} inline-flex items-center gap-1`}
+            onClick={async () => {
+              if (!showGalleryLibrary) {
+                const res = await apiFetch<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>("/api/upload");
+                if (res.success && res.data) setGalleryLibraryFiles(res.data);
+              }
+              setShowGalleryLibrary(!showGalleryLibrary);
+            }}
+          >
+            {showGalleryLibrary ? "닫기" : "📁 라이브러리"}
+          </button>
+        </div>
+        {showGalleryLibrary && (
+          <div className="rounded-lg border border-white/10 bg-zinc-800/50 p-2 max-h-48 overflow-y-auto">
+            <p className="text-[10px] text-zinc-500 mb-1.5">이전에 업로드한 이미지를 선택하세요</p>
+            {galleryLibraryFiles.length === 0 && (
+              <p className="text-xs text-zinc-600 text-center py-4">업로드한 이미지가 없습니다</p>
+            )}
+            <div className="grid grid-cols-4 gap-1.5">
+              {galleryLibraryFiles.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={async () => {
+                    onSaving();
+                    const addRes = await apiFetch<GalleryItem>("/api/site/gallery", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        url: f.storedPath,
+                        altText: f.originalName?.replace(/\.[^.]+$/, "") || null,
+                        category: newCat,
+                      }),
+                    });
+                    if (addRes.success && addRes.data) {
+                      const updated = [addRes.data!, ...items];
+                      setItems(updated);
+                      const ids = updated.map((i) => i.id!);
+                      await apiFetch("/api/site/gallery/reorder", {
+                        method: "PUT",
+                        body: JSON.stringify({ ids }),
+                      });
+                    }
+                    setShowGalleryLibrary(false);
+                    onSaved();
+                  }}
+                  className="relative aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-white/20 transition-colors"
+                  title={f.originalName || ""}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={f.storedPath} alt={f.originalName || ""} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 카테고리 선택 */}
         <div className="flex items-center gap-2">

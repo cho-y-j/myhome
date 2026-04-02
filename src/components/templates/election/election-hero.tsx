@@ -56,11 +56,11 @@ export default function ElectionHero({
   electionFontSize = 12,
 }: Props) {
   const dDay = useDDay(settings.electionDate);
+  const [copied, setCopied] = useState(false);
 
   function copyLink() {
     try {
       navigator.clipboard.writeText(window.location.href);
-      alert("링크가 복사되었습니다!");
     } catch {
       const input = document.createElement("input");
       input.value = window.location.href;
@@ -68,11 +68,12 @@ export default function ElectionHero({
       input.select();
       document.execCommand("copy");
       document.body.removeChild(input);
-      alert("링크가 복사되었습니다!");
     }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
-  /* ── Badges (당명 + 선거 D-day + 링크복사) ── */
+  /* ── Badges (당명 + 선거 D-day) ── */
   const badges = (
     <div className="flex items-center justify-center gap-3 flex-wrap">
       {settings.partyName && (
@@ -92,15 +93,6 @@ export default function ElectionHero({
           {formatDDay(dDay)}
         </span>
       )}
-      <button
-        onClick={copyLink}
-        className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 flex items-center gap-1"
-      >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-        </svg>
-        링크 복사
-      </button>
     </div>
   );
 
@@ -129,7 +121,7 @@ export default function ElectionHero({
         </p>
       )}
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-3 flex-wrap">
         <a
           href={button1Link || "#pledges"}
           className="rounded-full px-7 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-lg"
@@ -143,6 +135,15 @@ export default function ElectionHero({
         >
           {button2Text || "후보 소개"}
         </a>
+        <button
+          onClick={copyLink}
+          className="rounded-full border-2 border-white/50 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 flex items-center gap-1.5"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          {copied ? "복사됨!" : "링크 복사"}
+        </button>
       </div>
     </div>
   );
