@@ -1,14 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { IconifyIcon } from "@/components/ui/iconify-icon";
 
-const STAT_CARDS = [
-  { label: "오늘 방문자", icon: "solar:eye-bold", color: "text-blue-400", value: 0 },
-  { label: "이번 주", icon: "solar:calendar-bold", color: "text-green-400", value: 0 },
-  { label: "이번 달", icon: "solar:chart-2-bold", color: "text-purple-400", value: 0 },
+interface StatCard {
+  label: string;
+  icon: string;
+  color: string;
+  period: "today" | "week" | "month";
+}
+
+const STAT_CARDS: StatCard[] = [
+  { label: "오늘 방문자", icon: "solar:eye-bold", color: "text-blue-400", period: "today" },
+  { label: "이번 주", icon: "solar:calendar-bold", color: "text-green-400", period: "week" },
+  { label: "이번 달", icon: "solar:chart-2-bold", color: "text-purple-400", period: "month" },
 ];
 
 const QUICK_LINKS = [
@@ -22,10 +29,37 @@ export default function CustomerDashboardPage() {
   const params = useParams();
   const code = params.code as string;
   const [now, setNow] = useState<string>("");
+  const [visitorCounts, setVisitorCounts] = useState<Record<string, number>>({
+    today: 0,
+    week: 0,
+    month: 0,
+  });
+
+  const fetchStats = useCallback(async () => {
+    const periods = ["today", "week", "month"] as const;
+    const results = await Promise.all(
+      periods.map(async (period) => {
+        try {
+          const res = await fetch(`/api/analytics/overview?period=${period}`);
+          if (!res.ok) return { period, count: 0 };
+          const json = await res.json();
+          return { period, count: json.data?.uniqueVisitors ?? 0 };
+        } catch {
+          return { period, count: 0 };
+        }
+      })
+    );
+    const counts: Record<string, number> = {};
+    for (const r of results) {
+      counts[r.period] = r.count;
+    }
+    setVisitorCounts(counts);
+  }, []);
 
   useEffect(() => {
     setNow(new Date().toLocaleString("ko-KR"));
-  }, []);
+    fetchStats();
+  }, [fetchStats]);
 
   return (
     <div>
@@ -43,7 +77,7 @@ export default function CustomerDashboardPage() {
               <span className="text-sm text-zinc-400">{card.label}</span>
             </div>
             <div className={`text-3xl font-bold ${card.color}`}>
-              {card.value.toLocaleString()}
+              {(visitorCounts[card.period] ?? 0).toLocaleString()}
             </div>
           </div>
         ))}
