@@ -3915,6 +3915,21 @@ function ScheduleEditor({
   });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ title: "", date: "", time: "", location: "" });
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  async function swapOrder(fromIdx: number, toIdx: number) {
+    const reordered = [...items];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    setItems(reordered);
+    const ids = reordered.map((i) => i.id!).filter(Boolean);
+    await apiFetch("/api/site/schedules/reorder", {
+      method: "PUT",
+      body: JSON.stringify({ ids }),
+    });
+    onSaved();
+  }
 
   // Store schedule colors in block content: { colors: { [id]: "#hex" } }
   const blockContent = (block.content || {}) as Record<string, unknown>;
@@ -4062,11 +4077,26 @@ function ScheduleEditor({
               );
             }
 
+            const idx = items.indexOf(item);
             return (
               <div
                 key={item.id}
-                className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
+                draggable
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+                onDrop={() => { if (dragIdx !== null && dragIdx !== idx) swapOrder(dragIdx, idx); setDragIdx(null); setDragOverIdx(null); }}
+                onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-all ${
+                  dragOverIdx === idx ? "border-blue-500/50 bg-blue-500/5" : "border-white/5 bg-zinc-800/50"
+                } ${dragIdx === idx ? "opacity-40" : ""}`}
               >
+                {/* Drag handle */}
+                <span className="cursor-grab text-zinc-600 hover:text-zinc-400 active:cursor-grabbing text-sm">☰</span>
+                {/* Up/Down buttons */}
+                <div className="flex flex-col gap-0.5">
+                  <button onClick={() => idx > 0 && swapOrder(idx, idx - 1)} disabled={idx === 0} className="text-zinc-600 hover:text-white disabled:opacity-20 text-[10px]">▲</button>
+                  <button onClick={() => idx < items.length - 1 && swapOrder(idx, idx + 1)} disabled={idx === items.length - 1} className="text-zinc-600 hover:text-white disabled:opacity-20 text-[10px]">▼</button>
+                </div>
                 {/* Color indicator */}
                 <div
                   className="h-3 w-3 rounded-full flex-shrink-0 border border-white/10"

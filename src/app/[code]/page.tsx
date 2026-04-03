@@ -38,7 +38,7 @@ async function getSiteData(code: string): Promise<SiteData | null> {
       }),
       prisma.schedule.findMany({
         where: { userId: user.id },
-        orderBy: { date: "asc" },
+        orderBy: { sortOrder: "asc" },
       }),
       prisma.contact.findMany({
         where: { userId: user.id },

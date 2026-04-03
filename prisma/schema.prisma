@@ -178,6 +178,7 @@ model Schedule {
   date      DateTime @db.Date
   time      String?  @db.VarChar(10)
   location  String?  @db.VarChar(200)
+  sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
