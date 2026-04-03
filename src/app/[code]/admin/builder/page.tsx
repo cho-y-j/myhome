@@ -2873,12 +2873,18 @@ function CareerEditor({
   onSaved,
   onCancel,
 }: EditorBaseProps & { items: ProfileItem[] }) {
-  const [items, setItems] = useState<ProfileItem[]>(initialItems);
+  const [items, setItems] = useState<ProfileItem[]>(
+    [...initialItems].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  );
   const [newItem, setNewItem] = useState<ProfileItem>({
     type: "career",
     title: "",
     isCurrent: false,
   });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ type: "career", title: "", isCurrent: false });
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   async function addItem() {
     if (!newItem.title.trim()) return;
@@ -2901,42 +2907,183 @@ function CareerEditor({
     onSaved();
   }
 
+  async function swapOrder(idx: number, direction: "up" | "down") {
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+    const newItems = [...items];
+    [newItems[idx], newItems[targetIdx]] = [newItems[targetIdx], newItems[idx]];
+    setItems(newItems);
+    const ids = newItems.map((i) => i.id!);
+    await apiFetch("/api/site/profiles/reorder", {
+      method: "PUT",
+      body: JSON.stringify({ ids }),
+    });
+    onSaved();
+  }
+
+  function startEdit(item: ProfileItem) {
+    setEditingId(item.id!);
+    setEditForm({ type: item.type, title: item.title, isCurrent: item.isCurrent });
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    onSaving();
+    const res = await apiFetch<ProfileItem>(`/api/site/profiles/${editingId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        type: editForm.type,
+        title: editForm.title,
+        isCurrent: editForm.isCurrent,
+      }),
+    });
+    if (res.success && res.data) {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? res.data! : i)));
+    }
+    setEditingId(null);
+    onSaved();
+  }
+
   return (
     <div className="space-y-3">
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
-            >
-              <span
-                className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                  item.type === "education"
-                    ? "bg-blue-500/20 text-blue-400"
-                    : "bg-green-500/20 text-green-400"
+          {items.map((item, idx) => {
+            const isEditing = editingId === item.id;
+
+            if (isEditing) {
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-blue-500/30 bg-zinc-800/80 p-3 space-y-2"
+                >
+                  <p className="text-xs font-medium text-blue-400">항목 수정</p>
+                  <div className="flex gap-2">
+                    <select
+                      className={`${inputClass} w-24`}
+                      value={editForm.type}
+                      onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                    >
+                      <option value="career">경력</option>
+                      <option value="education">학력</option>
+                    </select>
+                    <input
+                      className={`${inputClass} flex-1`}
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      placeholder="내용 입력"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-zinc-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.isCurrent}
+                      onChange={(e) => setEditForm({ ...editForm, isCurrent: e.target.checked })}
+                      className="rounded"
+                    />
+                    현재 진행 중
+                  </label>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditingId(null)} className={btnSecondary}>
+                      취소
+                    </button>
+                    <button onClick={saveEdit} className={btnPrimary}>
+                      저장
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+                onDragLeave={() => setDragOverIdx(null)}
+                onDrop={async () => {
+                  if (dragIdx === null || dragIdx === idx) return;
+                  const newItems = [...items];
+                  const [moved] = newItems.splice(dragIdx, 1);
+                  newItems.splice(idx, 0, moved);
+                  setItems(newItems);
+                  setDragIdx(null);
+                  setDragOverIdx(null);
+                  const ids = newItems.map((i) => i.id!);
+                  await apiFetch("/api/site/profiles/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+                  onSaved();
+                }}
+                onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-grab transition-all ${
+                  dragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
+                  dragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
+                  "border-white/5 bg-zinc-800/50"
                 }`}
               >
-                {item.type === "education" ? "학력" : "경력"}
-              </span>
-              <span className="flex-1 text-sm text-zinc-200 truncate">
-                {item.title}
-              </span>
-              {item.isCurrent && (
-                <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
-                  현재
+                {/* Reorder buttons */}
+                <div className="flex flex-col gap-0.5">
+                  <button
+                    onClick={() => swapOrder(idx, "up")}
+                    disabled={idx === 0}
+                    className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 transition-colors"
+                    title="위로"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => swapOrder(idx, "down")}
+                    disabled={idx === items.length - 1}
+                    className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 transition-colors"
+                    title="아래로"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    item.type === "education"
+                      ? "bg-blue-500/20 text-blue-400"
+                      : "bg-green-500/20 text-green-400"
+                  }`}
+                >
+                  {item.type === "education" ? "학력" : "경력"}
                 </span>
-              )}
-              <button
-                onClick={() => item.id && removeItem(item.id)}
-                className="text-zinc-600 hover:text-red-400 transition-colors"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+                <span className="flex-1 text-sm text-zinc-200 truncate">
+                  {item.title}
+                </span>
+                {item.isCurrent && (
+                  <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
+                    현재
+                  </span>
+                )}
+                {/* Edit button */}
+                <button
+                  onClick={() => startEdit(item)}
+                  className="text-zinc-600 hover:text-blue-400 transition-colors"
+                  title="수정"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                {/* Delete button */}
+                <button
+                  onClick={() => item.id && removeItem(item.id)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -3766,6 +3913,8 @@ function ScheduleEditor({
     location: "",
     color: "",
   });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", date: "", time: "", location: "" });
 
   // Store schedule colors in block content: { colors: { [id]: "#hex" } }
   const blockContent = (block.content || {}) as Record<string, unknown>;
@@ -3831,12 +3980,88 @@ function ScheduleEditor({
     onSaved();
   }
 
+  function startEdit(item: ScheduleItem) {
+    setEditingId(item.id!);
+    setEditForm({
+      title: item.title,
+      date: typeof item.date === "string" ? item.date.slice(0, 10) : "",
+      time: item.time || "",
+      location: item.location || "",
+    });
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    onSaving();
+    const res = await apiFetch<ScheduleItem>(`/api/site/schedules/${editingId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        title: editForm.title,
+        date: editForm.date,
+        time: editForm.time || null,
+        location: editForm.location || null,
+      }),
+    });
+    if (res.success && res.data) {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? res.data! : i)));
+    }
+    setEditingId(null);
+    onSaved();
+  }
+
   return (
     <div className="space-y-3">
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
           {items.map((item) => {
             const itemColor = scheduleColors[String(item.id)] || "";
+            const isEditing = editingId === item.id;
+
+            if (isEditing) {
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-blue-500/30 bg-zinc-800/80 p-3 space-y-2"
+                >
+                  <p className="text-xs font-medium text-blue-400">일정 수정</p>
+                  <input
+                    className={inputClass}
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    placeholder="일정 제목"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      className={`${inputClass} flex-1`}
+                      value={editForm.date}
+                      onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                    />
+                    <input
+                      className={`${inputClass} w-24`}
+                      value={editForm.time}
+                      onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                      placeholder="시간"
+                    />
+                  </div>
+                  <input
+                    className={inputClass}
+                    value={editForm.location}
+                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                    placeholder="장소 (선택)"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditingId(null)} className={btnSecondary}>
+                      취소
+                    </button>
+                    <button onClick={saveEdit} className={btnPrimary}>
+                      저장
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={item.id}
@@ -3847,7 +4072,7 @@ function ScheduleEditor({
                   className="h-3 w-3 rounded-full flex-shrink-0 border border-white/10"
                   style={{ backgroundColor: itemColor || "#71717a" }}
                 />
-                <span className="text-xs text-zinc-500">{item.date}</span>
+                <span className="text-xs text-zinc-500">{typeof item.date === "string" ? item.date.slice(0, 10) : item.date}</span>
                 <span className="flex-1 text-sm text-zinc-200 truncate">
                   {item.title}
                 </span>
@@ -3868,6 +4093,16 @@ function ScheduleEditor({
                     </option>
                   ))}
                 </select>
+                {/* Edit button */}
+                <button
+                  onClick={() => startEdit(item)}
+                  className="text-zinc-600 hover:text-blue-400 transition-colors"
+                  title="수정"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
                 <button
                   onClick={() => item.id && removeItem(item.id)}
                   className="text-zinc-600 hover:text-red-400 transition-colors"
@@ -3963,6 +4198,37 @@ function NewsEditor({
   });
   const [newsDragIdx, setNewsDragIdx] = useState<number | null>(null);
   const [newsDragOverIdx, setNewsDragOverIdx] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", source: "", url: "", publishedDate: "" });
+
+  function startEdit(item: NewsItem) {
+    setEditingId(item.id!);
+    setEditForm({
+      title: item.title,
+      source: item.source || "",
+      url: item.url || "",
+      publishedDate: item.publishedDate ? String(item.publishedDate).slice(0, 10) : "",
+    });
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    onSaving();
+    const res = await apiFetch<NewsItem>(`/api/site/news/${editingId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        title: editForm.title,
+        source: editForm.source || null,
+        url: editForm.url || null,
+        publishedDate: editForm.publishedDate || null,
+      }),
+    });
+    if (res.success && res.data) {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? res.data! : i)));
+    }
+    setEditingId(null);
+    onSaved();
+  }
 
   async function saveShowCount(val: number) {
     setShowCount(val);
@@ -4043,71 +4309,130 @@ function NewsEditor({
 
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
-          {items.map((item, idx) => (
-            <div
-              key={item.id}
-              draggable
-              onDragStart={() => setNewsDragIdx(idx)}
-              onDragOver={(e) => { e.preventDefault(); setNewsDragOverIdx(idx); }}
-              onDragLeave={() => setNewsDragOverIdx(null)}
-              onDrop={async () => {
-                if (newsDragIdx === null || newsDragIdx === idx) return;
-                const newItems = [...items];
-                const [moved] = newItems.splice(newsDragIdx, 1);
-                newItems.splice(idx, 0, moved);
-                setItems(newItems);
-                setNewsDragIdx(null);
-                setNewsDragOverIdx(null);
-                const ids = newItems.map((i) => i.id!);
-                await apiFetch("/api/site/news/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
-                onSaved();
-              }}
-              onDragEnd={() => { setNewsDragIdx(null); setNewsDragOverIdx(null); }}
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 cursor-grab transition-all ${
-                newsDragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
-                newsDragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
-                "border-white/5 bg-zinc-800/50"
-              }`}
-            >
-              {/* Reorder buttons */}
-              <div className="flex flex-col gap-0.5">
-                <button
-                  onClick={() => swapOrder(idx, "up")}
-                  disabled={idx === 0}
-                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
-                  title="위로"
+          {items.map((item, idx) => {
+            const isEditing = editingId === item.id;
+
+            if (isEditing) {
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-blue-500/30 bg-zinc-800/80 p-3 space-y-2"
                 >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  <p className="text-xs font-medium text-blue-400">기사 수정</p>
+                  <input
+                    className={inputClass}
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    placeholder="기사 제목"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      className={`${inputClass} flex-1`}
+                      value={editForm.source}
+                      onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+                      placeholder="출처"
+                    />
+                    <input
+                      type="date"
+                      className={`${inputClass} w-40`}
+                      value={editForm.publishedDate}
+                      onChange={(e) => setEditForm({ ...editForm, publishedDate: e.target.value })}
+                    />
+                  </div>
+                  <input
+                    className={inputClass}
+                    value={editForm.url}
+                    onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
+                    placeholder="기사 URL"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditingId(null)} className={btnSecondary}>
+                      취소
+                    </button>
+                    <button onClick={saveEdit} className={btnPrimary}>
+                      저장
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={() => setNewsDragIdx(idx)}
+                onDragOver={(e) => { e.preventDefault(); setNewsDragOverIdx(idx); }}
+                onDragLeave={() => setNewsDragOverIdx(null)}
+                onDrop={async () => {
+                  if (newsDragIdx === null || newsDragIdx === idx) return;
+                  const newItems = [...items];
+                  const [moved] = newItems.splice(newsDragIdx, 1);
+                  newItems.splice(idx, 0, moved);
+                  setItems(newItems);
+                  setNewsDragIdx(null);
+                  setNewsDragOverIdx(null);
+                  const ids = newItems.map((i) => i.id!);
+                  await apiFetch("/api/site/news/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+                  onSaved();
+                }}
+                onDragEnd={() => { setNewsDragIdx(null); setNewsDragOverIdx(null); }}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 cursor-grab transition-all ${
+                  newsDragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
+                  newsDragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
+                  "border-white/5 bg-zinc-800/50"
+                }`}
+              >
+                {/* Reorder buttons */}
+                <div className="flex flex-col gap-0.5">
+                  <button
+                    onClick={() => swapOrder(idx, "up")}
+                    disabled={idx === 0}
+                    className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                    title="위로"
+                  >
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => swapOrder(idx, "down")}
+                    disabled={idx === items.length - 1}
+                    className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                    title="아래로"
+                  >
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+                <span className="flex-1 text-sm text-zinc-200 truncate">
+                  {item.title}
+                </span>
+                {item.source && (
+                  <span className="text-xs text-zinc-500">{item.source}</span>
+                )}
+                {/* Edit button */}
+                <button
+                  onClick={() => startEdit(item)}
+                  className="text-zinc-600 hover:text-blue-400 transition-colors"
+                  title="수정"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                 </button>
                 <button
-                  onClick={() => swapOrder(idx, "down")}
-                  disabled={idx === items.length - 1}
-                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
-                  title="아래로"
+                  onClick={() => item.id && removeItem(item.id)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors"
                 >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-              <span className="flex-1 text-sm text-zinc-200 truncate">
-                {item.title}
-              </span>
-              {item.source && (
-                <span className="text-xs text-zinc-500">{item.source}</span>
-              )}
-              <button
-                onClick={() => item.id && removeItem(item.id)}
-                className="text-zinc-600 hover:text-red-400 transition-colors"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -4437,6 +4762,8 @@ function ContactsEditor({
   });
   const [ctDragIdx, setCtDragIdx] = useState<number | null>(null);
   const [ctDragOverIdx, setCtDragOverIdx] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ type: "phone", label: "", value: "", url: "" });
 
   async function addItem() {
     if (!form.value.trim()) return;
@@ -4476,75 +4803,171 @@ function ContactsEditor({
     onSaved();
   }
 
+  function startEdit(item: ContactItem) {
+    setEditingId(item.id!);
+    setEditForm({
+      type: item.type,
+      label: item.label || "",
+      value: item.value,
+      url: item.url || "",
+    });
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    onSaving();
+    const res = await apiFetch<ContactItem>(`/api/site/contacts/${editingId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        type: editForm.type,
+        label: editForm.label || null,
+        value: editForm.value,
+        url: editForm.url || null,
+      }),
+    });
+    if (res.success && res.data) {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? res.data! : i)));
+    }
+    setEditingId(null);
+    onSaved();
+  }
+
   return (
     <div className="space-y-3">
       {items.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
-          {items.map((item, idx) => (
-            <div
-              key={item.id}
-              draggable
-              onDragStart={() => setCtDragIdx(idx)}
-              onDragOver={(e) => { e.preventDefault(); setCtDragOverIdx(idx); }}
-              onDragLeave={() => setCtDragOverIdx(null)}
-              onDrop={async () => {
-                if (ctDragIdx === null || ctDragIdx === idx) return;
-                const newItems = [...items];
-                const [moved] = newItems.splice(ctDragIdx, 1);
-                newItems.splice(idx, 0, moved);
-                setItems(newItems);
-                setCtDragIdx(null);
-                setCtDragOverIdx(null);
-                const ids = newItems.map((i) => i.id!);
-                await apiFetch("/api/site/contacts/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
-                onSaved();
-              }}
-              onDragEnd={() => { setCtDragIdx(null); setCtDragOverIdx(null); }}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-grab transition-all ${
-                ctDragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
-                ctDragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
-                "border-white/5 bg-zinc-800/50"
-              }`}
-            >
-              {/* Reorder buttons */}
-              <div className="flex flex-col gap-0.5">
-                <button
-                  onClick={() => swapOrder(idx, "up")}
-                  disabled={idx === 0}
-                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
-                  title="위로"
+          {items.map((item, idx) => {
+            const isEditing = editingId === item.id;
+
+            if (isEditing) {
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-blue-500/30 bg-zinc-800/80 p-3 space-y-2"
                 >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  <p className="text-xs font-medium text-blue-400">연락처 수정</p>
+                  <div className="flex gap-2">
+                    <select
+                      className={`${inputClass} w-28`}
+                      value={editForm.type}
+                      onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                    >
+                      <option value="phone">전화</option>
+                      <option value="email">이메일</option>
+                      <option value="blog">블로그</option>
+                      <option value="youtube">유튜브</option>
+                      <option value="instagram">인스타그램</option>
+                      <option value="facebook">페이스북</option>
+                      <option value="website">웹사이트</option>
+                      <option value="threads">Threads</option>
+                    </select>
+                    <input
+                      className={`${inputClass} flex-1`}
+                      value={editForm.label}
+                      onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
+                      placeholder="라벨 (선택)"
+                    />
+                  </div>
+                  <input
+                    className={inputClass}
+                    value={editForm.value}
+                    onChange={(e) => setEditForm({ ...editForm, value: e.target.value })}
+                    placeholder="값 (전화번호, 이메일 등)"
+                  />
+                  <input
+                    className={inputClass}
+                    value={editForm.url}
+                    onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
+                    placeholder="URL (선택)"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditingId(null)} className={btnSecondary}>
+                      취소
+                    </button>
+                    <button onClick={saveEdit} className={btnPrimary}>
+                      저장
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={() => setCtDragIdx(idx)}
+                onDragOver={(e) => { e.preventDefault(); setCtDragOverIdx(idx); }}
+                onDragLeave={() => setCtDragOverIdx(null)}
+                onDrop={async () => {
+                  if (ctDragIdx === null || ctDragIdx === idx) return;
+                  const newItems = [...items];
+                  const [moved] = newItems.splice(ctDragIdx, 1);
+                  newItems.splice(idx, 0, moved);
+                  setItems(newItems);
+                  setCtDragIdx(null);
+                  setCtDragOverIdx(null);
+                  const ids = newItems.map((i) => i.id!);
+                  await apiFetch("/api/site/contacts/reorder", { method: "PUT", body: JSON.stringify({ ids }) });
+                  onSaved();
+                }}
+                onDragEnd={() => { setCtDragIdx(null); setCtDragOverIdx(null); }}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-grab transition-all ${
+                  ctDragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
+                  ctDragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
+                  "border-white/5 bg-zinc-800/50"
+                }`}
+              >
+                {/* Reorder buttons */}
+                <div className="flex flex-col gap-0.5">
+                  <button
+                    onClick={() => swapOrder(idx, "up")}
+                    disabled={idx === 0}
+                    className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                    title="위로"
+                  >
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => swapOrder(idx, "down")}
+                    disabled={idx === items.length - 1}
+                    className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
+                    title="아래로"
+                  >
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+                <span className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] font-bold text-zinc-300">
+                  {item.type}
+                </span>
+                <span className="flex-1 text-sm text-zinc-200 truncate">
+                  {item.value}
+                </span>
+                {/* Edit button */}
+                <button
+                  onClick={() => startEdit(item)}
+                  className="text-zinc-600 hover:text-blue-400 transition-colors"
+                  title="수정"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                 </button>
                 <button
-                  onClick={() => swapOrder(idx, "down")}
-                  disabled={idx === items.length - 1}
-                  className="text-zinc-600 hover:text-white disabled:opacity-30 transition-colors"
-                  title="아래로"
+                  onClick={() => item.id && removeItem(item.id)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors"
                 >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-              <span className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] font-bold text-zinc-300">
-                {item.type}
-              </span>
-              <span className="flex-1 text-sm text-zinc-200 truncate">
-                {item.value}
-              </span>
-              <button
-                onClick={() => item.id && removeItem(item.id)}
-                className="text-zinc-600 hover:text-red-400 transition-colors"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -4607,6 +5030,8 @@ function LinksEditor({
   const content = block.content as { links?: LinkItem[] } | null;
   const [links, setLinks] = useState<LinkItem[]>(content?.links || []);
   const [form, setForm] = useState({ title: "", url: "", description: "" });
+  const [linkDragIdx, setLinkDragIdx] = useState<number | null>(null);
+  const [linkDragOverIdx, setLinkDragOverIdx] = useState<number | null>(null);
 
   function addLink() {
     if (!form.title.trim() || !form.url.trim()) return;
@@ -4616,6 +5041,14 @@ function LinksEditor({
 
   function removeLink(idx: number) {
     setLinks((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function swapOrder(idx: number, direction: "up" | "down") {
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= links.length) return;
+    const newLinks = [...links];
+    [newLinks[idx], newLinks[targetIdx]] = [newLinks[targetIdx], newLinks[idx]];
+    setLinks(newLinks);
   }
 
   async function save() {
@@ -4634,8 +5067,49 @@ function LinksEditor({
           {links.map((link, idx) => (
             <div
               key={idx}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-800/50 px-3 py-2"
+              draggable
+              onDragStart={() => setLinkDragIdx(idx)}
+              onDragOver={(e) => { e.preventDefault(); setLinkDragOverIdx(idx); }}
+              onDragLeave={() => setLinkDragOverIdx(null)}
+              onDrop={() => {
+                if (linkDragIdx === null || linkDragIdx === idx) return;
+                const newLinks = [...links];
+                const [moved] = newLinks.splice(linkDragIdx, 1);
+                newLinks.splice(idx, 0, moved);
+                setLinks(newLinks);
+                setLinkDragIdx(null);
+                setLinkDragOverIdx(null);
+              }}
+              onDragEnd={() => { setLinkDragIdx(null); setLinkDragOverIdx(null); }}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-grab transition-all ${
+                linkDragIdx === idx ? "opacity-40 border-blue-500/30 bg-zinc-800/30" :
+                linkDragOverIdx === idx ? "border-blue-400/50 bg-blue-900/20" :
+                "border-white/5 bg-zinc-800/50"
+              }`}
             >
+              {/* Reorder buttons */}
+              <div className="flex flex-col gap-0.5">
+                <button
+                  onClick={() => swapOrder(idx, "up")}
+                  disabled={idx === 0}
+                  className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 transition-colors"
+                  title="위로"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => swapOrder(idx, "down")}
+                  disabled={idx === links.length - 1}
+                  className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 transition-colors"
+                  title="아래로"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
               <div className="flex-1 min-w-0">
                 <span className="text-sm text-zinc-200 truncate block">
                   {link.title}

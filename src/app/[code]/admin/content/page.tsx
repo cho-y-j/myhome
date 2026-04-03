@@ -792,8 +792,11 @@ interface VideoItem { id: number; videoId: string; title?: string; sortOrder: nu
 function VideosTab() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const load = useCallback(() => {
     fetch("/api/site/videos").then(r => r.json()).then(r => r.success && setVideos(r.data));
@@ -805,6 +808,10 @@ function VideosTab() {
     return match ? match[1] : input.trim();
   }
 
+  function resetForm() {
+    setUrl(""); setTitle(""); setAdding(false); setEditingId(null);
+  }
+
   async function handleAdd() {
     const videoId = extractVideoId(url);
     if (!videoId) return;
@@ -812,7 +819,19 @@ function VideosTab() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ videoId, title: title || undefined }),
     });
-    setUrl(""); setTitle(""); setAdding(false); load();
+    resetForm(); load();
+  }
+
+  async function handleUpdate() {
+    if (editingId === null) return;
+    const videoId = extractVideoId(url);
+    if (!videoId) return;
+    const res = await fetch(`/api/site/videos/${editingId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ videoId, title: title || undefined }),
+    });
+    const data = await res.json();
+    if (data.success) { resetForm(); load(); }
   }
 
   async function handleDelete(id: number) {
@@ -820,23 +839,47 @@ function VideosTab() {
     await fetch(`/api/site/videos/${id}`, { method: "DELETE" }); load();
   }
 
+  function startEdit(v: VideoItem) {
+    setEditingId(v.id);
+    setAdding(false);
+    setUrl(v.videoId);
+    setTitle(v.title ?? "");
+  }
+
+  async function handleDrop(targetIdx: number) {
+    if (dragIdx.current === null || dragIdx.current === targetIdx) {
+      dragIdx.current = null; setDragOverIdx(null); return;
+    }
+    const reordered = [...videos];
+    const [moved] = reordered.splice(dragIdx.current, 1);
+    reordered.splice(targetIdx, 0, moved);
+    setVideos(reordered);
+    dragIdx.current = null;
+    setDragOverIdx(null);
+    await fetch("/api/site/videos/reorder", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: reordered.map(v => v.id) }),
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-200">영상 관리</h2>
-        <button onClick={() => setAdding(true)} className={btnPrimary}>
+        <button onClick={() => { resetForm(); setAdding(true); }} className={btnPrimary}>
           <span className="flex items-center gap-1.5"><IconifyIcon icon="solar:add-circle-bold" width="16" height="16" />추가</span>
         </button>
       </div>
-      {adding && (
+      {(adding || editingId !== null) && (
         <div className="rounded-xl border border-white/10 bg-zinc-800/50 p-4 space-y-3">
+          <p className="text-sm font-medium text-zinc-300">{editingId !== null ? "영상 수정" : "영상 추가"}</p>
           <div><label className={labelClass}>YouTube URL 또는 영상 ID</label>
             <input className={inputClass} value={url} onChange={e => setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." /></div>
           <div><label className={labelClass}>제목 (선택)</label>
             <input className={inputClass} value={title} onChange={e => setTitle(e.target.value)} placeholder="영상 제목" /></div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} className={btnPrimary}>저장</button>
-            <button onClick={() => setAdding(false)} className={btnSecondary}>취소</button>
+            <button onClick={editingId !== null ? handleUpdate : handleAdd} className={btnPrimary}>저장</button>
+            <button onClick={resetForm} className={btnSecondary}>취소</button>
           </div>
         </div>
       )}
@@ -844,15 +887,36 @@ function VideosTab() {
         <p className="py-12 text-center text-sm text-zinc-600">등록된 영상이 없습니다</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {videos.map(v => (
-            <div key={v.id} className="rounded-xl border border-white/5 bg-zinc-800/30 overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`https://img.youtube.com/vi/${v.videoId}/hqdefault.jpg`} alt={v.title || ""} className="w-full aspect-video object-cover" />
+          {videos.map((v, idx) => (
+            <div key={v.id}
+              draggable
+              onDragStart={() => { dragIdx.current = idx; }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={(e) => { e.preventDefault(); handleDrop(idx); }}
+              onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null); }}
+              className={`rounded-xl border overflow-hidden transition-all ${
+                dragOverIdx === idx ? "border-accent/50 ring-1 ring-accent/30" : "border-white/5"
+              } ${dragIdx.current === idx ? "opacity-50" : ""} bg-zinc-800/30`}
+            >
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`https://img.youtube.com/vi/${v.videoId}/hqdefault.jpg`} alt={v.title || ""} className="w-full aspect-video object-cover" />
+                <div className="absolute top-1.5 left-1.5 cursor-grab active:cursor-grabbing rounded-lg bg-black/50 p-1 text-white/70 hover:text-white">
+                  <span className="text-sm">&#9776;</span>
+                </div>
+              </div>
               <div className="flex items-center justify-between p-3">
                 <span className="text-sm text-zinc-200 truncate">{v.title || v.videoId}</span>
-                <button onClick={() => handleDelete(v.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400">
-                  <IconifyIcon icon="solar:trash-bin-trash-bold" width="16" height="16" />
-                </button>
+                <div className="flex gap-1.5">
+                  <button onClick={() => startEdit(v)}
+                    className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200">
+                    <IconifyIcon icon="solar:pen-bold" width="16" height="16" />
+                  </button>
+                  <button onClick={() => handleDelete(v.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400">
+                    <IconifyIcon icon="solar:trash-bin-trash-bold" width="16" height="16" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -870,12 +934,21 @@ interface NewsItem { id: number; title: string; source?: string; url?: string; p
 function NewsTab() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ title: "", source: "", url: "", publishedDate: "" });
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const load = useCallback(() => {
     fetch("/api/site/news").then(r => r.json()).then(r => r.success && setNews(r.data));
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  function resetForm() {
+    setForm({ title: "", source: "", url: "", publishedDate: "" });
+    setAdding(false);
+    setEditingId(null);
+  }
 
   async function handleAdd() {
     if (!form.title.trim()) return;
@@ -883,7 +956,17 @@ function NewsTab() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, publishedDate: form.publishedDate || undefined }),
     });
-    setForm({ title: "", source: "", url: "", publishedDate: "" }); setAdding(false); load();
+    resetForm(); load();
+  }
+
+  async function handleUpdate() {
+    if (editingId === null) return;
+    const res = await fetch(`/api/site/news/${editingId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, publishedDate: form.publishedDate || undefined }),
+    });
+    const data = await res.json();
+    if (data.success) { resetForm(); load(); }
   }
 
   async function handleDelete(id: number) {
@@ -891,16 +974,40 @@ function NewsTab() {
     await fetch(`/api/site/news/${id}`, { method: "DELETE" }); load();
   }
 
+  function startEdit(n: NewsItem) {
+    setEditingId(n.id);
+    setAdding(false);
+    const dateStr = n.publishedDate ? new Date(n.publishedDate).toISOString().split("T")[0] : "";
+    setForm({ title: n.title, source: n.source ?? "", url: n.url ?? "", publishedDate: dateStr });
+  }
+
+  async function handleDrop(targetIdx: number) {
+    if (dragIdx.current === null || dragIdx.current === targetIdx) {
+      dragIdx.current = null; setDragOverIdx(null); return;
+    }
+    const reordered = [...news];
+    const [moved] = reordered.splice(dragIdx.current, 1);
+    reordered.splice(targetIdx, 0, moved);
+    setNews(reordered);
+    dragIdx.current = null;
+    setDragOverIdx(null);
+    await fetch("/api/site/news/reorder", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: reordered.map(n => n.id) }),
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-200">기사 관리</h2>
-        <button onClick={() => setAdding(true)} className={btnPrimary}>
+        <button onClick={() => { resetForm(); setAdding(true); }} className={btnPrimary}>
           <span className="flex items-center gap-1.5"><IconifyIcon icon="solar:add-circle-bold" width="16" height="16" />추가</span>
         </button>
       </div>
-      {adding && (
+      {(adding || editingId !== null) && (
         <div className="rounded-xl border border-white/10 bg-zinc-800/50 p-4 space-y-3">
+          <p className="text-sm font-medium text-zinc-300">{editingId !== null ? "기사 수정" : "기사 추가"}</p>
           <div><label className={labelClass}>기사 제목</label>
             <input className={inputClass} value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="기사 제목" /></div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -912,8 +1019,8 @@ function NewsTab() {
           <div><label className={labelClass}>기사 URL</label>
             <input className={inputClass} value={form.url} onChange={e => setForm({...form, url: e.target.value})} placeholder="https://..." /></div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} className={btnPrimary}>저장</button>
-            <button onClick={() => setAdding(false)} className={btnSecondary}>취소</button>
+            <button onClick={editingId !== null ? handleUpdate : handleAdd} className={btnPrimary}>저장</button>
+            <button onClick={resetForm} className={btnSecondary}>취소</button>
           </div>
         </div>
       )}
@@ -921,15 +1028,34 @@ function NewsTab() {
         <p className="py-12 text-center text-sm text-zinc-600">등록된 기사가 없습니다</p>
       ) : (
         <div className="space-y-2">
-          {news.map(n => (
-            <div key={n.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-zinc-800/30 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-zinc-200 truncate">{n.title}</p>
-                <p className="text-xs text-zinc-500">{n.source}{n.publishedDate ? ` · ${new Date(n.publishedDate).toLocaleDateString("ko-KR")}` : ""}</p>
+          {news.map((n, idx) => (
+            <div key={n.id}
+              draggable
+              onDragStart={() => { dragIdx.current = idx; }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={(e) => { e.preventDefault(); handleDrop(idx); }}
+              onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null); }}
+              className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-all ${
+                dragOverIdx === idx ? "border-accent/50 ring-1 ring-accent/30" : "border-white/5"
+              } ${dragIdx.current === idx ? "opacity-50" : ""} bg-zinc-800/30`}
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span className="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-zinc-300">&#9776;</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-zinc-200 truncate">{n.title}</p>
+                  <p className="text-xs text-zinc-500">{n.source}{n.publishedDate ? ` · ${new Date(n.publishedDate).toLocaleDateString("ko-KR")}` : ""}</p>
+                </div>
               </div>
-              <button onClick={() => handleDelete(n.id)} className="ml-2 rounded-lg p-1.5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400">
-                <IconifyIcon icon="solar:trash-bin-trash-bold" width="16" height="16" />
-              </button>
+              <div className="flex gap-1.5 ml-2">
+                <button onClick={() => startEdit(n)}
+                  className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200">
+                  <IconifyIcon icon="solar:pen-bold" width="16" height="16" />
+                </button>
+                <button onClick={() => handleDelete(n.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400">
+                  <IconifyIcon icon="solar:trash-bin-trash-bold" width="16" height="16" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -946,16 +1072,26 @@ interface GalleryItem { id: number; url: string; altText?: string; category: str
 function GalleryTab() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ url: "", altText: "", category: "campaign" });
   const [filterCat, setFilterCat] = useState("all");
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const galleryFileRef = useRef<HTMLInputElement>(null);
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const load = useCallback(() => {
     fetch("/api/site/gallery").then(r => r.json()).then(r => r.success && setItems(r.data));
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  function resetForm() {
+    setForm({ url: "", altText: "", category: "campaign" });
+    setPreviewUrl(null);
+    setAdding(false);
+    setEditingId(null);
+  }
 
   async function handleAddPhoto() {
     if (!form.url.trim()) return;
@@ -963,12 +1099,53 @@ function GalleryTab() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    setForm({ url: "", altText: "", category: "campaign" }); setPreviewUrl(null); setAdding(false); load();
+    resetForm(); load();
+  }
+
+  async function handleUpdate() {
+    if (editingId === null) return;
+    const res = await fetch(`/api/site/gallery/${editingId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json();
+    if (data.success) { resetForm(); load(); }
   }
 
   async function handleDelete(id: number) {
     if (!confirm("삭제하시겠습니까?")) return;
     await fetch(`/api/site/gallery/${id}`, { method: "DELETE" }); load();
+  }
+
+  function startEdit(g: GalleryItem) {
+    setEditingId(g.id);
+    setAdding(false);
+    setForm({ url: g.url, altText: g.altText ?? "", category: g.category });
+    setPreviewUrl(null);
+  }
+
+  async function handleDrop(targetIdx: number) {
+    if (dragIdx.current === null || dragIdx.current === targetIdx) {
+      dragIdx.current = null; setDragOverIdx(null); return;
+    }
+    const reordered = [...filtered];
+    const [moved] = reordered.splice(dragIdx.current, 1);
+    reordered.splice(targetIdx, 0, moved);
+    // Update local state: replace filtered items in the full items array
+    if (filterCat === "all") {
+      setItems(reordered);
+    } else {
+      const otherItems = items.filter(g => g.category !== filterCat);
+      setItems([...reordered, ...otherItems]);
+    }
+    dragIdx.current = null;
+    setDragOverIdx(null);
+    // Send reorder for the full list if "all", or just the filtered category
+    const idsToReorder = filterCat === "all" ? reordered.map(g => g.id) : reordered.map(g => g.id);
+    await fetch("/api/site/gallery/reorder", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: idsToReorder }),
+    });
   }
 
   const categories = ["all", ...Array.from(new Set(items.map(g => g.category)))];
@@ -982,14 +1159,15 @@ function GalleryTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-200">사진첩 관리</h2>
-        <button onClick={() => setAdding(true)} className={btnPrimary}>
+        <button onClick={() => { resetForm(); setAdding(true); }} className={btnPrimary}>
           <span className="flex items-center gap-1.5"><IconifyIcon icon="solar:add-circle-bold" width="16" height="16" />추가</span>
         </button>
       </div>
 
-      {/* 추가 폼 */}
-      {adding && (
+      {/* 추가 / 수정 폼 */}
+      {(adding || editingId !== null) && (
         <div className="rounded-xl border border-white/10 bg-zinc-800/50 p-4 space-y-4">
+          <p className="text-sm font-medium text-zinc-300">{editingId !== null ? "사진 수정" : "사진 추가"}</p>
           <div className="space-y-3">
             {/* 이미지 업로드 */}
             <div>
@@ -1047,8 +1225,8 @@ function GalleryTab() {
                 </select></div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleAddPhoto} disabled={!form.url} className={btnPrimary}>저장</button>
-              <button onClick={() => { setAdding(false); setPreviewUrl(null); }} className={btnSecondary}>취소</button>
+              <button onClick={editingId !== null ? handleUpdate : handleAddPhoto} disabled={!form.url} className={btnPrimary}>저장</button>
+              <button onClick={resetForm} className={btnSecondary}>취소</button>
             </div>
           </div>
         </div>
@@ -1075,8 +1253,18 @@ function GalleryTab() {
         </div>
       ) : (
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-          {filtered.map(g => (
-            <div key={g.id} className="group relative rounded-xl overflow-hidden border border-white/5">
+          {filtered.map((g, idx) => (
+            <div key={g.id}
+              draggable
+              onDragStart={() => { dragIdx.current = idx; }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={(e) => { e.preventDefault(); handleDrop(idx); }}
+              onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null); }}
+              className={`group relative rounded-xl overflow-hidden border transition-all ${
+                dragOverIdx === idx ? "border-accent/50 ring-1 ring-accent/30" : "border-white/5"
+              } ${dragIdx.current === idx ? "opacity-50" : ""}`}
+            >
               {g.category === "blog" ? (
                 /* 블로그 링크 카드 */
                 <a href={g.url} target="_blank" rel="noopener noreferrer"
@@ -1095,7 +1283,16 @@ function GalleryTab() {
                   </div>
                 </>
               )}
-              <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Drag handle */}
+              <div className="absolute top-1.5 left-1.5 cursor-grab active:cursor-grabbing rounded-lg bg-black/50 p-1 text-white/70 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-sm">&#9776;</span>
+              </div>
+              {/* Action buttons */}
+              <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => startEdit(g)}
+                  className="rounded-full bg-zinc-900/90 p-1.5 text-white shadow-lg hover:bg-zinc-700">
+                  <IconifyIcon icon="solar:pen-bold" width="14" height="14" />
+                </button>
                 <button onClick={() => handleDelete(g.id)}
                   className="rounded-full bg-red-500/90 p-1.5 text-white shadow-lg hover:bg-red-600">
                   <IconifyIcon icon="solar:trash-bin-trash-bold" width="14" height="14" />
@@ -1117,6 +1314,7 @@ interface ScheduleItem { id: number; title: string; date: string; time?: string;
 function ScheduleTab() {
   const [items, setItems] = useState<ScheduleItem[]>([]);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ title: "", date: "", time: "", location: "" });
 
   const load = useCallback(() => {
@@ -1124,13 +1322,29 @@ function ScheduleTab() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  function resetForm() {
+    setForm({ title: "", date: "", time: "", location: "" });
+    setAdding(false);
+    setEditingId(null);
+  }
+
   async function handleAdd() {
     if (!form.title.trim() || !form.date) return;
     await fetch("/api/site/schedules", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    setForm({ title: "", date: "", time: "", location: "" }); setAdding(false); load();
+    resetForm(); load();
+  }
+
+  async function handleUpdate() {
+    if (editingId === null) return;
+    const res = await fetch(`/api/site/schedules/${editingId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json();
+    if (data.success) { resetForm(); load(); }
   }
 
   async function handleDelete(id: number) {
@@ -1138,16 +1352,24 @@ function ScheduleTab() {
     await fetch(`/api/site/schedules/${id}`, { method: "DELETE" }); load();
   }
 
+  function startEdit(s: ScheduleItem) {
+    setEditingId(s.id);
+    setAdding(false);
+    const dateStr = s.date ? new Date(s.date).toISOString().split("T")[0] : "";
+    setForm({ title: s.title, date: dateStr, time: s.time ?? "", location: s.location ?? "" });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-200">일정 관리</h2>
-        <button onClick={() => setAdding(true)} className={btnPrimary}>
+        <button onClick={() => { resetForm(); setAdding(true); }} className={btnPrimary}>
           <span className="flex items-center gap-1.5"><IconifyIcon icon="solar:add-circle-bold" width="16" height="16" />추가</span>
         </button>
       </div>
-      {adding && (
+      {(adding || editingId !== null) && (
         <div className="rounded-xl border border-white/10 bg-zinc-800/50 p-4 space-y-3">
+          <p className="text-sm font-medium text-zinc-300">{editingId !== null ? "일정 수정" : "일정 추가"}</p>
           <div><label className={labelClass}>일정 제목</label>
             <input className={inputClass} value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="일정 제목" /></div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1159,8 +1381,8 @@ function ScheduleTab() {
               <input className={inputClass} value={form.location} onChange={e => setForm({...form, location: e.target.value})} placeholder="장소" /></div>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} className={btnPrimary}>저장</button>
-            <button onClick={() => setAdding(false)} className={btnSecondary}>취소</button>
+            <button onClick={editingId !== null ? handleUpdate : handleAdd} className={btnPrimary}>저장</button>
+            <button onClick={resetForm} className={btnSecondary}>취소</button>
           </div>
         </div>
       )}
@@ -1176,9 +1398,15 @@ function ScheduleTab() {
                   {new Date(s.date).toLocaleDateString("ko-KR")}{s.time ? ` ${s.time}` : ""}{s.location ? ` · ${s.location}` : ""}
                 </p>
               </div>
-              <button onClick={() => handleDelete(s.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400">
-                <IconifyIcon icon="solar:trash-bin-trash-bold" width="16" height="16" />
-              </button>
+              <div className="flex gap-1.5">
+                <button onClick={() => startEdit(s)}
+                  className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200">
+                  <IconifyIcon icon="solar:pen-bold" width="16" height="16" />
+                </button>
+                <button onClick={() => handleDelete(s.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-500/10 hover:text-red-400">
+                  <IconifyIcon icon="solar:trash-bin-trash-bold" width="16" height="16" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
