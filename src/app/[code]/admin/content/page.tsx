@@ -946,12 +946,11 @@ interface GalleryItem { id: number; url: string; altText?: string; category: str
 function GalleryTab() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [adding, setAdding] = useState(false);
-  const [addMode, setAddMode] = useState<"photo" | "blog">("photo");
-  const [form, setForm] = useState({ url: "", altText: "", category: "activity" });
-  const [blogUrl, setBlogUrl] = useState("");
-  const [blogLoading, setBlogLoading] = useState(false);
-  const [blogError, setBlogError] = useState("");
+  const [form, setForm] = useState({ url: "", altText: "", category: "campaign" });
   const [filterCat, setFilterCat] = useState("all");
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const galleryFileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     fetch("/api/site/gallery").then(r => r.json()).then(r => r.success && setItems(r.data));
@@ -964,25 +963,7 @@ function GalleryTab() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    setForm({ url: "", altText: "", category: "activity" }); setAdding(false); load();
-  }
-
-  async function handleAddBlog() {
-    if (!blogUrl.trim()) return;
-    setBlogLoading(true);
-    setBlogError("");
-
-    // 블로그 URL을 gallery에 "blog" 카테고리로 저장
-    // 블로그 링크 자체를 이미지 URL 대신 저장하고, 공개 사이트에서 링크로 표시
-    await fetch("/api/site/gallery", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: blogUrl,
-        altText: "블로그 게시글",
-        category: "blog",
-      }),
-    });
-    setBlogUrl(""); setBlogLoading(false); setAdding(false); load();
+    setForm({ url: "", altText: "", category: "campaign" }); setPreviewUrl(null); setAdding(false); load();
   }
 
   async function handleDelete(id: number) {
@@ -993,8 +974,8 @@ function GalleryTab() {
   const categories = ["all", ...Array.from(new Set(items.map(g => g.category)))];
   const filtered = filterCat === "all" ? items : items.filter(g => g.category === filterCat);
   const catLabels: Record<string, string> = {
-    all: "전체", activity: "활동", campaign: "선거운동",
-    event: "행사", media: "언론", blog: "블로그",
+    all: "전체", campaign: "선거운동", activity: "의정활동",
+    local: "지역활동", event: "행사", media: "언론보도",
   };
 
   return (
@@ -1009,60 +990,67 @@ function GalleryTab() {
       {/* 추가 폼 */}
       {adding && (
         <div className="rounded-xl border border-white/10 bg-zinc-800/50 p-4 space-y-4">
-          {/* 모드 선택 탭 */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setAddMode("photo")}
-              className={`rounded-lg px-4 py-2 text-sm transition-colors ${addMode === "photo" ? "bg-accent/10 text-accent font-medium" : "text-zinc-400 hover:bg-white/5"}`}
-            >
-              <span className="flex items-center gap-1.5">
-                <IconifyIcon icon="solar:gallery-bold" width="16" height="16" />
-                사진 URL
-              </span>
-            </button>
-            <button
-              onClick={() => setAddMode("blog")}
-              className={`rounded-lg px-4 py-2 text-sm transition-colors ${addMode === "blog" ? "bg-accent/10 text-accent font-medium" : "text-zinc-400 hover:bg-white/5"}`}
-            >
-              <span className="flex items-center gap-1.5">
-                <IconifyIcon icon="solar:link-bold" width="16" height="16" />
-                블로그 링크
-              </span>
-            </button>
-          </div>
-
-          {addMode === "photo" ? (
-            <div className="space-y-3">
-              <div><label className={labelClass}>이미지 URL</label>
-                <input className={inputClass} value={form.url} onChange={e => setForm({...form, url: e.target.value})} placeholder="https://이미지주소.jpg" />
-                <p className="mt-1 text-xs text-zinc-600">직접 이미지 URL을 입력하세요</p>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div><label className={labelClass}>설명</label>
-                  <input className={inputClass} value={form.altText} onChange={e => setForm({...form, altText: e.target.value})} placeholder="사진 설명" /></div>
-                <div><label className={labelClass}>카테고리</label>
-                  <select className={inputClass} value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
-                    <option value="activity">활동</option><option value="campaign">선거운동</option>
-                    <option value="event">행사</option><option value="media">언론</option>
-                  </select></div>
-              </div>
-              {form.url && (
-                <div className="rounded-lg border border-white/5 p-2">
-                  <p className="mb-1 text-xs text-zinc-500">미리보기</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={form.url} alt="미리보기" className="max-h-40 rounded-lg object-cover" onError={e => (e.target as HTMLImageElement).style.display = "none"} />
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button onClick={handleAddPhoto} className={btnPrimary}>저장</button>
-                <button onClick={() => setAdding(false)} className={btnSecondary}>취소</button>
-              </div>
+          <div className="space-y-3">
+            {/* 이미지 업로드 */}
+            <div>
+              <label className={labelClass}>사진 업로드</label>
+              <input
+                ref={galleryFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setPreviewUrl(URL.createObjectURL(file));
+                  setUploading(true);
+                  const fd = new FormData();
+                  fd.append("file", file);
+                  const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+                  const json = await res.json();
+                  setUploading(false);
+                  if (json.success) {
+                    setForm((prev) => ({ ...prev, url: json.data.url }));
+                  } else {
+                    alert(json.error || "업로드 실패");
+                  }
+                  if (galleryFileRef.current) galleryFileRef.current.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => galleryFileRef.current?.click()}
+                disabled={uploading}
+                className={`${btnSecondary} w-full flex items-center justify-center gap-2`}
+              >
+                <IconifyIcon icon="solar:gallery-add-bold" width="18" height="18" />
+                {uploading ? "업로드 중..." : "이미지 선택"}
+              </button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <div><label className={labelClass}>블로그 게시글 URL</label>
-                <input className={inputClass} value={blogUrl} onChange={e => setBlogUrl(e.target.value)}
-                  placeholder="https://blog.naver.com/..." />
+            {/* 미리보기 */}
+            {(previewUrl || form.url) && (
+              <div className="rounded-lg border border-white/5 p-2">
+                <p className="mb-1 text-xs text-zinc-500">미리보기</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewUrl || form.url} alt="미리보기" className="max-h-40 rounded-lg object-cover" />
+              </div>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div><label className={labelClass}>설명</label>
+                <input className={inputClass} value={form.altText} onChange={e => setForm({...form, altText: e.target.value})} placeholder="사진 설명" /></div>
+              <div><label className={labelClass}>카테고리</label>
+                <select className={inputClass} value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+                  <option value="campaign">선거운동</option><option value="activity">의정활동</option>
+                  <option value="local">지역활동</option><option value="event">행사</option>
+                  <option value="media">언론보도</option>
+                </select></div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleAddPhoto} disabled={!form.url} className={btnPrimary}>저장</button>
+              <button onClick={() => { setAdding(false); setPreviewUrl(null); }} className={btnSecondary}>취소</button>
+            </div>
+          </div>
                 <p className="mt-1 text-xs text-zinc-600">네이버 블로그, 티스토리 등의 게시글 URL을 입력하면 사진첩에서 링크로 연결됩니다</p>
               </div>
               {blogError && <p className="text-sm text-red-400">{blogError}</p>}
@@ -1070,10 +1058,6 @@ function GalleryTab() {
                 <button onClick={handleAddBlog} disabled={blogLoading} className={btnPrimary}>
                   {blogLoading ? "저장 중..." : "블로그 링크 추가"}
                 </button>
-                <button onClick={() => setAdding(false)} className={btnSecondary}>취소</button>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1094,7 +1078,7 @@ function GalleryTab() {
         <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
           <IconifyIcon icon="solar:gallery-bold" width="48" height="48" />
           <p className="mt-4 text-sm">등록된 사진이 없습니다</p>
-          <p className="mt-1 text-xs text-zinc-600">사진 URL 또는 블로그 링크를 추가해보세요</p>
+          <p className="mt-1 text-xs text-zinc-600">이미지를 업로드하여 추가해보세요</p>
         </div>
       ) : (
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
