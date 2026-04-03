@@ -982,7 +982,7 @@ function GalleryTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-200">사진첩 관리</h2>
-        <button onClick={() => { setAdding(true); setAddMode("photo"); }} className={btnPrimary}>
+        <button onClick={() => setAdding(true)} className={btnPrimary}>
           <span className="flex items-center gap-1.5"><IconifyIcon icon="solar:add-circle-bold" width="16" height="16" />추가</span>
         </button>
       </div>
