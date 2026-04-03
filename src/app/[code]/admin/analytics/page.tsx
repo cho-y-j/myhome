@@ -70,19 +70,22 @@ export default function AnalyticsPage() {
 
       if (overviewRes.ok) {
         const j = await overviewRes.json();
-        setOverview(j.data || null);
+        if (j.success && j.data) setOverview(j.data);
       }
       if (todayRes.ok) {
         const j = await todayRes.json();
-        setTodayOverview(j.data || null);
+        if (j.success && j.data) setTodayOverview(j.data);
       }
       if (visitorsRes.ok) {
         const j = await visitorsRes.json();
-        setDaily(j.data || []);
+        if (j.success && Array.isArray(j.data)) setDaily(j.data);
+        else setDaily([]);
       }
       if (eventsRes.ok) {
         const j = await eventsRes.json();
-        setEventsByType(j.data?.byType || {});
+        if (j.success && j.data?.byType && typeof j.data.byType === "object") {
+          setEventsByType(j.data.byType);
+        }
       }
     } catch (err) {
       console.error("Analytics fetch error:", err);
