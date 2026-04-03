@@ -1051,13 +1051,6 @@ function GalleryTab() {
               <button onClick={() => { setAdding(false); setPreviewUrl(null); }} className={btnSecondary}>취소</button>
             </div>
           </div>
-                <p className="mt-1 text-xs text-zinc-600">네이버 블로그, 티스토리 등의 게시글 URL을 입력하면 사진첩에서 링크로 연결됩니다</p>
-              </div>
-              {blogError && <p className="text-sm text-red-400">{blogError}</p>}
-              <div className="flex gap-2">
-                <button onClick={handleAddBlog} disabled={blogLoading} className={btnPrimary}>
-                  {blogLoading ? "저장 중..." : "블로그 링크 추가"}
-                </button>
         </div>
       )}
 
