@@ -6,8 +6,8 @@ import type { SessionUser } from "@/types/user";
 
 const SALT_ROUNDS = 12;
 const COOKIE_NAME = "mh_session";
-const SESSION_EXPIRY_DAYS = 7;
-const REMEMBER_ME_DAYS = 30;
+const SESSION_EXPIRY_HOURS = 2; // 관리자 세션: 2시간
+const REMEMBER_ME_DAYS = 7; // 자동 로그인: 7일
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, SALT_ROUNDS);
@@ -28,8 +28,9 @@ export async function createSession(
   userAgent: string
 ): Promise<string> {
   const sessionId = randomBytes(32).toString("hex");
-  const days = rememberMe ? REMEMBER_ME_DAYS : SESSION_EXPIRY_DAYS;
-  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  const expiresAt = rememberMe
+    ? new Date(Date.now() + REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000)
+    : new Date(Date.now() + SESSION_EXPIRY_HOURS * 60 * 60 * 1000);
 
   await prisma.session.create({
     data: {
@@ -88,14 +89,16 @@ export async function deleteSession(sessionId: string): Promise<void> {
 }
 
 export function setSessionCookie(sessionId: string, rememberMe: boolean) {
-  const days = rememberMe ? REMEMBER_ME_DAYS : SESSION_EXPIRY_DAYS;
+  const maxAge = rememberMe
+    ? REMEMBER_ME_DAYS * 24 * 60 * 60
+    : SESSION_EXPIRY_HOURS * 60 * 60;
   const cookieStore = cookies();
   cookieStore.set(COOKIE_NAME, sessionId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    maxAge: days * 24 * 60 * 60,
+    maxAge,
   });
 }
 
