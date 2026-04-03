@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { cookies } from "next/headers";
 import {
   verifyPassword,
   createSession,
@@ -43,6 +44,9 @@ export async function POST(request: NextRequest) {
         userAgent
       );
       setSessionCookie(sessionId, rememberMe ?? false);
+      const cookieStore = cookies();
+      cookieStore.set("mh_user_type", "super_admin", { path: "/", httpOnly: false, maxAge: 30 * 24 * 60 * 60 });
+      cookieStore.set("mh_code", "", { path: "/", httpOnly: false, maxAge: 30 * 24 * 60 * 60 });
 
       await prisma.activityLog.create({
         data: {
@@ -81,6 +85,9 @@ export async function POST(request: NextRequest) {
         userAgent
       );
       setSessionCookie(sessionId, rememberMe ?? false);
+      const cookieStore2 = cookies();
+      cookieStore2.set("mh_user_type", "user", { path: "/", httpOnly: false, maxAge: 30 * 24 * 60 * 60 });
+      cookieStore2.set("mh_code", user.code, { path: "/", httpOnly: false, maxAge: 30 * 24 * 60 * 60 });
 
       await prisma.activityLog.create({
         data: {

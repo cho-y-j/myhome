@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import {
   getSessionFromCookies,
   deleteSession,
@@ -12,6 +13,9 @@ export async function POST() {
       await deleteSession(sessionId);
     }
     clearSessionCookie();
+    const cookieStore = cookies();
+    cookieStore.set("mh_user_type", "", { path: "/", maxAge: 0 });
+    cookieStore.set("mh_code", "", { path: "/", maxAge: 0 });
     return successResponse({ message: "로그아웃되었습니다" });
   } catch (error) {
     console.error("Logout error:", error);
