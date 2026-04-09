@@ -108,6 +108,7 @@ const BLOCK_TYPES: Record<string, { label: string; icon: string; defaultTitle: s
   schedule: { label: "선거 일정", icon: "📅", defaultTitle: "선거 일정" },
   news: { label: "보도자료", icon: "📰", defaultTitle: "보도자료" },
   videos: { label: "홍보 영상", icon: "🎬", defaultTitle: "홍보 영상" },
+  donation: { label: "후원 안내", icon: "💝", defaultTitle: "후원 안내" },
   contacts: { label: "후원/연락", icon: "📞", defaultTitle: "후원·연락처" },
   links: { label: "관련 링크", icon: "🔗", defaultTitle: "관련 링크" },
 };
@@ -955,6 +956,8 @@ function SectionPreview({
       return <NewsPreview block={block} news={news} />;
     case "videos":
       return <VideosPreview block={block} videos={videos} />;
+    case "donation":
+      return <DonationPreview block={block} />;
     case "contacts":
       return <ContactsPreview block={block} contacts={contacts} />;
     case "links":
@@ -1053,9 +1056,9 @@ function HeroPreview({
           {settings.heroSubSlogan}
         </p>
       )}
-      <div className="flex items-center justify-center gap-3 flex-wrap">
+      <div className="flex items-center justify-center gap-2 flex-wrap">
         <span
-          className="rounded-full px-7 py-3 text-sm font-bold text-white shadow-lg cursor-default"
+          className="rounded-full px-5 py-3 text-sm font-bold text-white shadow-lg cursor-default"
           style={{
             backgroundColor: "var(--primary)",
             filter: "brightness(0.85)",
@@ -1063,8 +1066,11 @@ function HeroPreview({
         >
           {button1Text}
         </span>
-        <span className="rounded-full border-2 border-white/50 bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur-sm cursor-default">
+        <span className="rounded-full border-2 border-white/50 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm cursor-default">
           {button2Text}
+        </span>
+        <span className="rounded-full border-2 border-white/50 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm cursor-default">
+          후원 안내
         </span>
         <span className="rounded-full border-2 border-white/50 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm cursor-default flex items-center gap-1.5">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1654,6 +1660,34 @@ function VideosPreview({ block, videos }: { block: Block; videos: VideoItem[] })
 }
 
 /* ═══════════════════════════════════════════════
+   DONATION Preview
+   ═══════════════════════════════════════════════ */
+function DonationPreview({ block }: { block: Block }) {
+  const content = block.content as { imageUrl?: string; description?: string } | null;
+  if (!content?.imageUrl) {
+    return <EmptySection label="후원 안내" icon="💝" />;
+  }
+  return (
+    <section id="donation" className="bg-gray-50 py-16 sm:py-20">
+      <div className="mx-auto max-w-3xl px-6">
+        <div className="mb-10 text-center">
+          <h2 className="text-2xl font-bold sm:text-3xl text-gray-900">
+            {block.title || BLOCK_TYPES.donation.defaultTitle}
+          </h2>
+          {content.description && (
+            <p className="mt-3 text-sm text-gray-600 whitespace-pre-line">{content.description}</p>
+          )}
+        </div>
+        <div className="rounded-2xl bg-white p-4 shadow-sm border border-gray-100">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={content.imageUrl} alt="후원 안내" className="w-full rounded-xl" loading="lazy" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    CONTACTS Preview
    ═══════════════════════════════════════════════ */
 function ContactsPreview({ block, contacts }: { block: Block; contacts: ContactItem[] }) {
@@ -2051,6 +2085,16 @@ function SectionEditor({
         <VideosEditor
           block={block}
           items={videos}
+          onSaving={onSaving}
+          onSaved={onSaved}
+          onCancel={onCancel}
+        />
+      );
+      break;
+    case "donation":
+      editor = (
+        <DonationEditor
+          block={block}
           onSaving={onSaving}
           onSaved={onSaved}
           onCancel={onCancel}
@@ -4767,6 +4811,135 @@ function VideosEditor({
       </div>
 
       <EditorActions onSave={onCancel} onCancel={onCancel} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   Donation Editor
+   ═══════════════════════════════════════════════ */
+function DonationEditor({
+  block,
+  onSaving,
+  onSaved,
+  onCancel,
+}: EditorBaseProps) {
+  const content = block.content as { imageUrl?: string; description?: string } | null;
+  const [form, setForm] = useState({
+    imageUrl: content?.imageUrl || "",
+    description: content?.description || "",
+  });
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryFiles, setLibraryFiles] = useState<{ id: number; storedPath: string; originalName: string; fileType: string; createdAt: string }[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function save() {
+    onSaving();
+    await apiFetch(`/api/site/blocks/${block.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ content: form }),
+    });
+    onSaved();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className={labelClass}>후원 이미지 (계좌 등)</label>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="absolute w-0 h-0 opacity-0 overflow-hidden"
+          disabled={uploading}
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setPreviewUrl(URL.createObjectURL(file));
+            setUploading(true);
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+            const json = await res.json();
+            setUploading(false);
+            if (json.success) {
+              setForm((prev) => ({ ...prev, imageUrl: json.data.url }));
+            }
+            e.target.value = "";
+          }}
+        />
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            className={btnSecondary}
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+          >
+            {uploading ? "업로드 중..." : "📷 새 이미지"}
+          </button>
+          <button
+            type="button"
+            className={btnSecondary}
+            onClick={async () => {
+              if (!showLibrary) {
+                const res = await apiFetch<typeof libraryFiles>("/api/upload");
+                if (res.success && res.data) setLibraryFiles(res.data);
+              }
+              setShowLibrary(!showLibrary);
+            }}
+          >
+            {showLibrary ? "닫기" : "📁 라이브러리"}
+          </button>
+          {form.imageUrl && (
+            <button
+              className="text-xs text-red-400 hover:text-red-300"
+              onClick={() => { setForm({ ...form, imageUrl: "" }); setPreviewUrl(null); }}
+            >
+              삭제
+            </button>
+          )}
+        </div>
+        {(previewUrl || form.imageUrl) && (
+          <div className="mt-2 rounded-lg overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl || form.imageUrl} alt="preview" className="w-full rounded-lg" />
+          </div>
+        )}
+        {showLibrary && (
+          <div className="mt-2 rounded-lg border border-white/10 bg-zinc-800/50 p-2 max-h-48 overflow-y-auto">
+            <div className="grid grid-cols-4 gap-1.5">
+              {libraryFiles.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    setForm({ ...form, imageUrl: f.storedPath });
+                    setPreviewUrl(null);
+                    setShowLibrary(false);
+                  }}
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
+                    form.imageUrl === f.storedPath ? "border-blue-500" : "border-transparent hover:border-white/20"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={f.storedPath} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      <div>
+        <label className={labelClass}>안내 설명</label>
+        <textarea
+          className={`${inputClass} min-h-[80px] resize-y`}
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          placeholder="후원 안내 문구"
+        />
+      </div>
+      <EditorActions onSave={save} onCancel={onCancel} />
     </div>
   );
 }

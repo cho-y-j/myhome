@@ -121,19 +121,25 @@ export default function ElectionHero({
         </p>
       )}
 
-      <div className="flex items-center justify-center gap-3 flex-wrap">
+      <div className="flex items-center justify-center gap-2 flex-wrap">
         <a
           href={button1Link || "#pledges"}
-          className="rounded-full px-7 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-lg"
+          className="rounded-full px-5 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-lg"
           style={{ backgroundColor: "var(--primary)", filter: "brightness(0.85)" }}
         >
           {button1Text || "공약 보기"}
         </a>
         <a
           href={button2Link || "#about"}
-          className="rounded-full border-2 border-white/50 bg-white/10 px-7 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+          className="rounded-full border-2 border-white/50 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
         >
           {button2Text || "후보 소개"}
+        </a>
+        <a
+          href="#donation"
+          className="rounded-full border-2 border-white/50 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+        >
+          후원 안내
         </a>
         <button
           onClick={copyLink}

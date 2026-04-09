@@ -185,6 +185,30 @@ export default function ElectionTemplate({ data }: Props) {
         />
       );
     },
+    donation: () => {
+      const donationContent = blockContent("donation");
+      const imageUrl = donationContent?.imageUrl as string | undefined;
+      const description = donationContent?.description as string | undefined;
+      if (!imageUrl) return null;
+      return (
+        <section key="donation" id="donation" className="bg-gray-50 py-16 sm:py-20">
+          <div className="mx-auto max-w-3xl px-6">
+            <div className="mb-10 text-center">
+              <h2 className="section-heading text-2xl font-bold sm:text-3xl text-gray-900">
+                {blockTitle("donation") || "후원 안내"}
+              </h2>
+              {description && (
+                <p className="mt-3 text-sm text-gray-600 whitespace-pre-line">{description}</p>
+              )}
+            </div>
+            <div className="rounded-2xl bg-white p-4 shadow-sm border border-gray-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imageUrl} alt="후원 안내" className="w-full rounded-xl" loading="lazy" />
+            </div>
+          </div>
+        </section>
+      );
+    },
     contacts: () => (
       <ElectionContacts
         key="contacts"
