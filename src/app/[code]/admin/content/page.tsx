@@ -13,6 +13,7 @@ const TABS = [
   { key: "videos", label: "영상", icon: "solar:play-circle-bold", group: "daily" },
   { key: "pledges", label: "공약", icon: "solar:clipboard-list-bold", group: "core" },
   { key: "profile", label: "프로필", icon: "solar:user-bold", group: "core" },
+  { key: "donation", label: "후원", icon: "solar:hand-money-bold", group: "core" },
   { key: "contacts", label: "연락처", icon: "solar:phone-bold", group: "core" },
   { key: "settings", label: "기본설정", icon: "solar:settings-bold", group: "setup" },
   { key: "qrcode", label: "QR코드", icon: "solar:qr-code-bold", group: "setup" },
@@ -142,6 +143,7 @@ export default function ContentPage() {
         {activeTab === "settings" && <SettingsTab />}
         {activeTab === "profile" && <ProfileTab />}
         {activeTab === "pledges" && <PledgesTab />}
+        {activeTab === "donation" && <DonationTab />}
         {activeTab === "contacts" && <ContactsTab />}
         {activeTab === "photos" && <GalleryTab />}
         {activeTab === "schedule" && <ScheduleTab />}
@@ -1438,6 +1440,125 @@ const CONTACT_TYPES = [
   { value: "kakao", label: "카카오톡" },
   { value: "other", label: "기타" },
 ];
+
+/* ─── 후원 탭 ─── */
+function DonationTab() {
+  const [block, setBlock] = useState<{ id: number; content: { imageUrl?: string; description?: string } | null } | null>(null);
+  const [form, setForm] = useState({ imageUrl: "", description: "" });
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/site/blocks").then(r => r.json()).then(r => {
+      if (r.success && r.data) {
+        const donationBlock = r.data.find((b: { type: string }) => b.type === "donation");
+        if (donationBlock) {
+          setBlock(donationBlock);
+          const c = donationBlock.content || {};
+          setForm({ imageUrl: c.imageUrl || "", description: c.description || "" });
+        }
+      }
+    });
+  }, []);
+
+  async function createBlock() {
+    const res = await fetch("/api/site/blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "donation", content: form }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setBlock(data.data);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  }
+
+  async function save() {
+    if (!block) {
+      await createBlock();
+      return;
+    }
+    const res = await fetch(`/api/site/blocks/${block.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: form }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-zinc-200">후원 안내</h2>
+        <button onClick={save} className={btnPrimary}>
+          {saved ? "저장됨 ✓" : "저장"}
+        </button>
+      </div>
+
+      <div>
+        <label className={labelClass}>후원 이미지 (계좌번호 등)</label>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={uploading}
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setPreviewUrl(URL.createObjectURL(file));
+            setUploading(true);
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+            const json = await res.json();
+            setUploading(false);
+            if (json.success) {
+              setForm((prev) => ({ ...prev, imageUrl: json.data.url }));
+            } else {
+              alert(json.error || "업로드 실패");
+            }
+            if (fileRef.current) fileRef.current.value = "";
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className={`${btnSecondary} flex items-center gap-2`}
+        >
+          <IconifyIcon icon="solar:gallery-add-bold" width="18" height="18" />
+          {uploading ? "업로드 중..." : "이미지 선택"}
+        </button>
+        {(previewUrl || form.imageUrl) && (
+          <div className="mt-3 rounded-xl border border-white/5 p-2">
+            <p className="mb-1 text-xs text-zinc-500">미리보기</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl || form.imageUrl} alt="후원 이미지" className="max-h-80 rounded-lg" />
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label className={labelClass}>안내 설명 (선택)</label>
+        <textarea
+          className={`${inputClass} min-h-[100px] resize-y`}
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          placeholder="후원 안내 문구를 입력하세요"
+        />
+      </div>
+    </div>
+  );
+}
 
 function ContactsTab() {
   const [contacts, setContacts] = useState<Contact[]>([]);
